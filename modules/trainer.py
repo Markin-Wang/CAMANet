@@ -1,0 +1,324 @@
+import os
+from abc import abstractmethod
+
+import time
+import torch
+import pandas as pd
+from numpy import inf
+from tqdm import tqdm
+try:
+    # noinspection PyUnresolvedReferences
+    from apex import amp
+except ImportError:
+    amp = None
+
+from modules.utils import get_grad_norm
+import torch.distributed as dist
+
+class BaseTrainer(object):
+    def __init__(self, model, criterion, metric_ftns, optimizer, args, logger, config):
+        self.args = args
+
+        # setup GPU device if available, move model into configured device
+        self.device, device_ids = self._prepare_device(args.n_gpu)
+
+        if config.AMP_OPT_LEVEL != "O0":
+            model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK],
+                                                          broadcast_buffers=False, find_unused_parameters=True)
+        self.model = model
+
+        self.criterion = criterion
+        self.metric_ftns = metric_ftns
+        self.optimizer = optimizer
+        self.logger = logger
+
+        self.epochs = self.args.epochs
+        self.save_period = self.args.save_period
+
+        self.mnt_mode = args.monitor_mode
+        self.mnt_metric = 'val_' + args.monitor_metric
+        self.mnt_metric_test = 'test_' + args.monitor_metric
+        assert self.mnt_mode in ['min', 'max']
+
+        self.mnt_best = inf if self.mnt_mode == 'min' else -inf
+        self.early_stop = getattr(self.args, 'early_stop', inf)
+
+        self.start_epoch = 1
+        self.checkpoint_dir = args.save_dir
+
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+
+        if args.resume is not None:
+            self._resume_checkpoint(args.resume)
+
+        self.best_recorder = {'val': {self.mnt_metric: self.mnt_best},
+                              'test': {self.mnt_metric_test: self.mnt_best}}
+
+    @abstractmethod
+    def _train_epoch(self, epoch):
+        raise NotImplementedError
+
+    def train(self):
+        not_improved_count = 0
+        for epoch in range(self.start_epoch, self.epochs + 1):
+            result = self._train_epoch(epoch)
+
+            # save logged informations into log dict
+            log = {'epoch': epoch}
+            log.update(result)
+            self._record_best(log)
+
+            # print logged informations to the screen
+
+            for key, value in log.items():
+                self.logger.info('\t{:15s}: {}'.format(str(key), value))
+
+            # evaluate model performance according to configured metric, save best checkpoint as model_best
+            best = False
+            if self.mnt_mode != 'off':
+                try:
+                    # check whether model performance improved or not, according to specified metric(mnt_metric)
+                    improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
+                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
+                except KeyError:
+                    self.logger.info("Warning: Metric '{}' is not found. " "Model performance monitoring is disabled.".format(
+                        self.mnt_metric))
+                    self.mnt_mode = 'off'
+                    improved = False
+
+                if improved:
+                    self.mnt_best = log[self.mnt_metric]
+                    not_improved_count = 0
+                    best = True
+                else:
+                    not_improved_count += 1
+
+                if not_improved_count > self.early_stop:
+                    self.logger.info("Validation performance didn\'t improve for {} epochs. " "Training stops.".format(
+                        self.early_stop))
+                    break
+
+            if epoch % self.save_period == 0 and dist.get_rank() == 0:
+                self._save_checkpoint(epoch, save_best=best)
+        if dist.get_rank() == 0:
+            self._print_best()
+            self._print_best_to_file()
+
+    def _print_best_to_file(self):
+        crt_time = time.asctime(time.localtime(time.time()))
+        self.best_recorder['val']['time'] = crt_time
+        self.best_recorder['test']['time'] = crt_time
+        self.best_recorder['val']['seed'] = self.args.seed
+        self.best_recorder['test']['seed'] = self.args.seed
+        self.best_recorder['val']['best_model_from'] = 'val'
+        self.best_recorder['test']['best_model_from'] = 'test'
+
+        if not os.path.exists(self.args.record_dir):
+            os.makedirs(self.args.record_dir)
+        record_path = os.path.join(self.args.record_dir, self.args.dataset_name+'.csv')
+        if not os.path.exists(record_path):
+            record_table = pd.DataFrame()
+        else:
+            record_table = pd.read_csv(record_path)
+        record_table = record_table.append(self.best_recorder['val'], ignore_index=True)
+        record_table = record_table.append(self.best_recorder['test'], ignore_index=True)
+        record_table.to_csv(record_path, index=False)
+
+    def _prepare_device(self, n_gpu_use):
+        n_gpu = torch.cuda.device_count()
+        if n_gpu_use > 0 and n_gpu == 0:
+            print("Warning: There\'s no GPU available on this machine," "training will be performed on CPU.")
+            n_gpu_use = 0
+        if n_gpu_use > n_gpu:
+            print(
+                "Warning: The number of GPU\'s configured to use is {}, but only {} are available " "on this machine.".format(
+                    n_gpu_use, n_gpu))
+            n_gpu_use = n_gpu
+        device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
+        list_ids = list(range(n_gpu_use))
+        return device, list_ids
+
+    def _save_checkpoint(self, epoch, save_best=False):
+        state = {
+            'epoch': epoch,
+            'state_dict': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'monitor_best': self.mnt_best
+        }
+        filename = os.path.join(self.checkpoint_dir, 'current_checkpoint.pth')
+        torch.save(state, filename)
+        print("Saving checkpoint: {} ...".format(filename))
+        if save_best:
+            best_path = os.path.join(self.checkpoint_dir, 'model_best.pth')
+            torch.save(state, best_path)
+            print("Saving current best: model_best.pth ...")
+
+    def _resume_checkpoint(self, resume_path):
+        resume_path = str(resume_path)
+        print("Loading checkpoint: {} ...".format(resume_path))
+        checkpoint = torch.load(resume_path)
+        self.start_epoch = checkpoint['epoch'] + 1
+        self.mnt_best = checkpoint['monitor_best']
+        self.model.load_state_dict(checkpoint['state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+
+        print("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
+
+    def _record_best(self, log):
+        improved_val = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.best_recorder['val'][
+            self.mnt_metric]) or \
+                       (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.best_recorder['val'][self.mnt_metric])
+        if improved_val:
+            self.best_recorder['val'].update(log)
+
+        improved_test = (self.mnt_mode == 'min' and log[self.mnt_metric_test] <= self.best_recorder['test'][
+            self.mnt_metric_test]) or \
+                        (self.mnt_mode == 'max' and log[self.mnt_metric_test] >= self.best_recorder['test'][
+                            self.mnt_metric_test])
+        if improved_test:
+            self.best_recorder['test'].update(log)
+
+    def _print_best(self):
+        print('Best results (w.r.t {}) in validation set:'.format(self.args.monitor_metric))
+        for key, value in self.best_recorder['val'].items():
+            print('\t{:15s}: {}'.format(str(key), value))
+
+        print('Best results (w.r.t {}) in test set:'.format(self.args.monitor_metric))
+        for key, value in self.best_recorder['test'].items():
+            print('\t{:15s}: {}'.format(str(key), value))
+
+
+class Trainer(BaseTrainer):
+    def __init__(self, model, criterion, metric_ftns, optimizer, args, lr_scheduler, tokenizer,
+                 train_dataloader, val_dataloader, test_dataloader, writer, logger, config):
+        super(Trainer, self).__init__(model, criterion, metric_ftns, optimizer, args, logger, config)
+        self.lr_scheduler = lr_scheduler
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
+        self.test_dataloader = test_dataloader
+        self.writer = writer
+        self.config = config
+        self.tokenizer = tokenizer
+
+    def _train_epoch(self, epoch):
+
+        train_loss = 0
+        val_loss = 0
+        self.model.train()
+        with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(self.train_dataloader)) as pbar:
+            for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
+                images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(self.device), reports_masks.to(
+                    self.device)
+                output = self.model(images, reports_ids, mode='train')
+
+                if self.config.TRAIN.ACCUMULATION_STEPS > 1:
+                    loss = self.criterion(output, reports_ids, reports_masks)
+                    loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
+                    if self.config.AMP_OPT_LEVEL != "O0":
+                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                        if self.config.TRAIN.CLIP_GRAD:
+                            grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer),
+                                                                       self.config.TRAIN.CLIP_GRAD)
+                        else:
+                            grad_norm = get_grad_norm(self.amp.master_params(self.optimizer))
+                    else:
+                        loss.backward()
+                        if self.config.TRAIN.CLIP_GRAD:
+                            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.TRAIN.CLIP_GRAD)
+                        else:
+                            grad_norm = get_grad_norm(model.parameters())
+                    if (epoch + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0:
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                        self.lr_scheduler.step()
+                else:
+                    loss = self.criterion(output, reports_ids, reports_masks)
+                    self.optimizer.zero_grad()
+                    if self.config.AMP_OPT_LEVEL != "O0":
+                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                        if self.config.TRAIN.CLIP_GRAD:
+                            grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer),
+                                                                       self.config.TRAIN.CLIP_GRAD)
+                        else:
+                            grad_norm = get_grad_norm(amp.master_params(self.optimizer))
+                    else:
+                        loss.backward()
+                        if self.config.TRAIN.CLIP_GRAD:
+                            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.TRAIN.CLIP_GRAD)
+                        else:
+                            grad_norm = get_grad_norm(self.model.parameters())
+                    self.optimizer.step()
+                    self.lr_scheduler.step()
+
+
+                #loss = self.criterion(output, reports_ids, reports_masks)
+                train_loss += loss.item()
+                #self.optimizer.zero_grad()
+                #loss.backward()
+                #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                #self.optimizer.step()
+                pbar.set_postfix(loss=train_loss / (batch_idx + 1))
+                pbar.update()
+        log = {'train_loss': train_loss / len(self.train_dataloader)}
+        self.writer.add_scalar('data/train_loss', train_loss, epoch)
+
+
+        self.model.eval()
+        with tqdm(desc='Epoch %d - val' % epoch, unit='it', total=len(self.val_dataloader)) as pbar:
+            with torch.no_grad():
+                val_gts, val_res = [], []
+                for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.val_dataloader):
+                    images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(
+                        self.device), reports_masks.to(self.device)
+                    out = self.model(images, reports_ids, mode='train')
+                    loss = self.criterion(out, reports_ids, reports_masks)
+                    val_loss += loss.item()
+                    output = self.model(images, mode='sample')
+                    reports = self.tokenizer.decode_batch(output.cpu().numpy())
+                    ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+                    val_res.extend(reports)
+                    val_gts.extend(ground_truths)
+                    pbar.set_postfix(loss=val_loss / (batch_idx + 1))
+                    pbar.update()
+                val_met = self.metric_ftns({i: [gt] for i, gt in enumerate(val_gts)},
+                                           {i: [re] for i, re in enumerate(val_res)})
+                log.update(**{'val_' + k: v for k, v in val_met.items()})
+                log.update({'val_loss': val_loss / len(self.val_dataloader)})
+                self.writer.add_scalar('data/val_bleu1', val_met['BLEU_1'], epoch)
+                self.writer.add_scalar('data/val_bleu2', val_met['BLEU_2'], epoch)
+                self.writer.add_scalar('data/val_bleu3', val_met['BLEU_3'], epoch)
+                self.writer.add_scalar('data/val_bleu4', val_met['BLEU_4'], epoch)
+                self.writer.add_scalar('data/val_meteor', val_met['METEOR'], epoch)
+                self.writer.add_scalar('data/val_rouge-l', val_met['ROUGE_L'], epoch)
+        self.writer.add_scalar('data/val_loss', val_loss, epoch)
+
+        self.model.eval()
+        with tqdm(desc='Epoch %d - test' % epoch, unit='it', total=len(self.test_dataloader)) as pbar:
+            with torch.no_grad():
+                test_gts, test_res = [], []
+                for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.test_dataloader):
+                    images, reports_ids, reports_masks = images.cuda(), reports_ids.cuda(), reports_masks.cuda()
+                    #out = self.model(images, reports_ids, mode='train')
+                    #loss = self.criterion(out, reports_ids, reports_masks)
+                    output = self.model(images, mode='sample')
+                    reports = self.tokenizer.decode_batch(output.cpu().numpy())
+                    ground_truths = self.model.module.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+                    test_res.extend(reports)
+                    test_gts.extend(ground_truths)
+                    pbar.update()
+                test_met = self.metric_ftns({i: [gt] for i, gt in enumerate(test_gts)},
+                                            {i: [re] for i, re in enumerate(test_res)})
+                log.update(**{'test_' + k: v for k, v in test_met.items()})
+                self.writer.add_scalar('data/test_bleu1', test_met['BLEU_1'], epoch)
+                self.writer.add_scalar('data/test_bleu2', test_met['BLEU_2'], epoch)
+                self.writer.add_scalar('data/test_bleu3', test_met['BLEU_3'], epoch)
+                self.writer.add_scalar('data/test_bleu4', test_met['BLEU_4'], epoch)
+                self.writer.add_scalar('data/test_meteor', test_met['METEOR'], epoch)
+                self.writer.add_scalar('data/test_rouge-l', test_met['ROUGE_L'], epoch)
+
+        # add loss
+        return log
