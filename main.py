@@ -25,22 +25,22 @@ def main():
     # parse arguments
     args, config = parse_args()
     print(args)
-    if config.AMP_OPT_LEVEL != "O0":
-        assert amp is not None, "amp not installed!"
+    # if config.AMP_OPT_LEVEL != "O0":
+    #     assert amp is not None, "amp not installed!"
 
     writer = SummaryWriter(log_dir=os.path.join(args.logs_folder, args.exp_name))
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
-    else:
-        rank = -1
-        world_size = -1
+    # if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    #     rank = int(os.environ["RANK"])
+    #     world_size = int(os.environ['WORLD_SIZE'])
+    #     print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+    # else:
+    #     rank = -1
+    #     world_size = -1
 
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
+    # torch.cuda.set_device(config.LOCAL_RANK)
+    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    # torch.distributed.barrier()
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = True
@@ -49,13 +49,14 @@ def main():
     random.seed(args.seed)
 
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}")
+    #logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}")
+    logger = create_logger(output_dir=config.OUTPUT,  name=f"{config.MODEL.NAME}")
 
-    if dist.get_rank() == 0:
-        path = os.path.join(config.OUTPUT, "config.json")
-        with open(path, "w") as f:
-            f.write(config.dump())
-        logger.info(f"Full config saved to {path}")
+    #if dist.get_rank() == 0:
+    path = os.path.join(config.OUTPUT, "config.json")
+    with open(path, "w") as f:
+        f.write(config.dump())
+    logger.info(f"Full config saved to {path}")
     logger.info(config.dump())
 
 

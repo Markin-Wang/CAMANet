@@ -11,7 +11,7 @@ class VisualExtractor(nn.Module):
         if args.ve_name == 'swin_transformer':
             self.model = build_model(config)
             load_pretrained(config, self.model, logger)
-            # self.model.layers = self.model.layers[:-2]
+            # self.model.layers = self.model.layers[:-1]
             # self.model.num_layers = self.model.num_layers - 1
             self.num_features = self.model.num_features
         elif args.ve_name == 'resnet101':

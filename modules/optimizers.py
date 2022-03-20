@@ -12,12 +12,13 @@ def build_optimizer(args, model):
             amsgrad=args.amsgrad
         )
     elif args.optim == 'SGD':
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.SGD(
             [{'params': model.visual_extractor.parameters(), 'lr': args.lr_ve},
              {'params': ed_params, 'lr': args.lr_ed}],
             weight_decay=args.weight_decay,
-            amsgrad=args.amsgrad,
-            momentum = 0.9
+            #amsgrad=args.amsgrad,
+            momentum = 0.9,
+            nesterov=True,
         )
     return optimizer
 

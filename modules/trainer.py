@@ -22,11 +22,13 @@ class BaseTrainer(object):
         # setup GPU device if available, move model into configured device
         self.device, device_ids = self._prepare_device(args.n_gpu)
 
-        if config.AMP_OPT_LEVEL != "O0":
-            model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK],
-                                                          broadcast_buffers=False, find_unused_parameters=True)
+        # if config.AMP_OPT_LEVEL != "O0":
+        #     model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
+        # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK],
+        #                                                   broadcast_buffers=False, find_unused_parameters=True)
         self.model = model
+        if len(device_ids) > 1:
+            self.model = torch.nn.DataParallel(model, device_ids=device_ids)
 
         self.criterion = criterion
         self.metric_ftns = metric_ftns
@@ -100,11 +102,10 @@ class BaseTrainer(object):
                         self.early_stop))
                     break
 
-            if epoch % self.save_period == 0 and dist.get_rank() == 0:
+            if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
-        if dist.get_rank() == 0:
-            self._print_best()
-            self._print_best_to_file()
+        self._print_best()
+        self._print_best_to_file()
 
     def _print_best_to_file(self):
         crt_time = time.asctime(time.localtime(time.time()))
@@ -212,60 +213,16 @@ class Trainer(BaseTrainer):
                 images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(self.device), reports_masks.to(
                     self.device)
                 output = self.model(images, reports_ids, mode='train')
-
-                if self.config.TRAIN.ACCUMULATION_STEPS > 1:
-                    loss = self.criterion(output, reports_ids, reports_masks)
-                    loss = loss / self.config.TRAIN.ACCUMULATION_STEPS
-                    if self.config.AMP_OPT_LEVEL != "O0":
-                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                            scaled_loss.backward()
-                        if self.config.TRAIN.CLIP_GRAD:
-                            grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer),
-                                                                       self.config.TRAIN.CLIP_GRAD)
-                        else:
-                            grad_norm = get_grad_norm(self.amp.master_params(self.optimizer))
-                    else:
-                        loss.backward()
-                        if self.config.TRAIN.CLIP_GRAD:
-                            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.TRAIN.CLIP_GRAD)
-                        else:
-                            grad_norm = get_grad_norm(model.parameters())
-                    if (epoch + 1) % self.config.TRAIN.ACCUMULATION_STEPS == 0:
-                        self.optimizer.step()
-                        self.optimizer.zero_grad()
-                        self.lr_scheduler.step()
-                else:
-                    loss = self.criterion(output, reports_ids, reports_masks)
-                    self.optimizer.zero_grad()
-                    if self.config.AMP_OPT_LEVEL != "O0":
-                        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                            scaled_loss.backward()
-                        if self.config.TRAIN.CLIP_GRAD:
-                            grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(self.optimizer),
-                                                                       self.config.TRAIN.CLIP_GRAD)
-                        else:
-                            grad_norm = get_grad_norm(amp.master_params(self.optimizer))
-                    else:
-                        loss.backward()
-                        if self.config.TRAIN.CLIP_GRAD:
-                            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.TRAIN.CLIP_GRAD)
-                        else:
-                            grad_norm = get_grad_norm(self.model.parameters())
-                    self.optimizer.step()
-                    self.lr_scheduler.step()
-
-
-                #loss = self.criterion(output, reports_ids, reports_masks)
+                loss = self.criterion(output, reports_ids, reports_masks)
                 train_loss += loss.item()
-                #self.optimizer.zero_grad()
-                #loss.backward()
-                #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                #self.optimizer.step()
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                self.optimizer.step()
                 pbar.set_postfix(loss=train_loss / (batch_idx + 1))
                 pbar.update()
-        log = {'train_loss': train_loss / len(self.train_dataloader)}
+            log = {'train_loss': train_loss / len(self.train_dataloader)}
         self.writer.add_scalar('data/train_loss', train_loss, epoch)
-
 
         self.model.eval()
         with tqdm(desc='Epoch %d - val' % epoch, unit='it', total=len(self.val_dataloader)) as pbar:
@@ -295,6 +252,7 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar('data/val_meteor', val_met['METEOR'], epoch)
                 self.writer.add_scalar('data/val_rouge-l', val_met['ROUGE_L'], epoch)
         self.writer.add_scalar('data/val_loss', val_loss, epoch)
+        self.lr_scheduler.step()
 
         self.model.eval()
         with tqdm(desc='Epoch %d - test' % epoch, unit='it', total=len(self.test_dataloader)) as pbar:
@@ -306,7 +264,7 @@ class Trainer(BaseTrainer):
                     #loss = self.criterion(out, reports_ids, reports_masks)
                     output = self.model(images, mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
-                    ground_truths = self.model.module.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+                    ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     test_res.extend(reports)
                     test_gts.extend(ground_truths)
                     pbar.update()

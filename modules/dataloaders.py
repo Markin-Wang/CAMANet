@@ -36,17 +36,17 @@ class R2DataLoader(DataLoader):
             self.dataset = IuxrayMultiImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
         else:
             self.dataset = MimiccxrSingleImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
-        num_tasks = dist.get_world_size()
-        global_rank = dist.get_rank()
-
-        self.sampler = DistributedSampler(self.dataset, num_replicas=num_tasks,
-                                          rank=global_rank, shuffle=self.shuffle)
+        # num_tasks = dist.get_world_size()
+        # global_rank = dist.get_rank()
+        #
+        # self.sampler = DistributedSampler(self.dataset, num_replicas=num_tasks,
+        #                                   rank=global_rank, shuffle=self.shuffle)
 
         self.init_kwargs = {
             'dataset': self.dataset,
-            'sampler': self.sampler,
+            #'sampler': self.sampler,
             'batch_size': self.batch_size,
-            #'shuffle': self.shuffle,
+            'shuffle': self.shuffle,
             'collate_fn': self.collate_fn,
             'num_workers': self.num_workers
         }
