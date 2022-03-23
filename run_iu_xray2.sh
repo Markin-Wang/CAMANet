@@ -1,5 +1,5 @@
-python main.py \
---exp_name stsmall_r2gen_4bk_3e-3_3e-3_sgd_ss10_gm08_wd5e-5 \
+CUDA_VISIBLE_DEVICES=2 python main.py \
+--exp_name stsmall_r2gen_3bk_3e-3_1e-3_adam_ss50_gm08_wd5e-5 \
 --image_dir data/iu_xray/images/ \
 --ann_path data/iu_xray/annotation.json \
 --dataset_name iu_xray \
@@ -8,15 +8,15 @@ python main.py \
 --batch_size 16 \
 --epochs 25 \
 --lr_ve 3e-3 \
---lr_ed 3e-3 \
---save_dir results/iu_xray \
---step_size 10 \
+--lr_ed 1e-3 \
+--save_dir results/iu_xray2 \
+--step_size 50 \
 --gamma 0.8 \
 --seed 9223 \
 --cfg configs/swin_small_patch4_window7_224.yaml \
 --pretrained ./pretrained_models/swin_small_patch4_window7_224.pth \
 --ve_name swin_transformer \
 --early_stop 15 \
---d_vf 768 \
+--d_vf 384 \
 --weight_decay 5e-5 \
 --optim Adam \

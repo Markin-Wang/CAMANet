@@ -210,8 +210,9 @@ class Trainer(BaseTrainer):
         self.model.train()
         with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
-                images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(self.device), reports_masks.to(
-                    self.device)
+                images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                                                         reports_ids.to(self.device,non_blocking=True), \
+                                                         reports_masks.to(self.device, non_blocking=True)
                 output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
                 train_loss += loss.item()
@@ -229,8 +230,9 @@ class Trainer(BaseTrainer):
             with torch.no_grad():
                 val_gts, val_res = [], []
                 for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.val_dataloader):
-                    images, reports_ids, reports_masks = images.to(self.device), reports_ids.to(
-                        self.device), reports_masks.to(self.device)
+                    images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                                                         reports_ids.to(self.device,non_blocking=True), \
+                                                         reports_masks.to(self.device, non_blocking=True)
                     out = self.model(images, reports_ids, mode='train')
                     loss = self.criterion(out, reports_ids, reports_masks)
                     val_loss += loss.item()
@@ -259,7 +261,9 @@ class Trainer(BaseTrainer):
             with torch.no_grad():
                 test_gts, test_res = [], []
                 for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.test_dataloader):
-                    images, reports_ids, reports_masks = images.cuda(), reports_ids.cuda(), reports_masks.cuda()
+                    images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                                                         reports_ids.to(self.device,non_blocking=True), \
+                                                         reports_masks.to(self.device, non_blocking=True)
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
                     output = self.model(images, mode='sample')
