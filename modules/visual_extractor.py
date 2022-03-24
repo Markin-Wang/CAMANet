@@ -9,9 +9,9 @@ class VisualExtractor(nn.Module):
         super(VisualExtractor, self).__init__()
         self.ve_name = args.ve_name
         if args.ve_name == 'swin_transformer':
-            config.defrost()
-            config.MODEL.SWIN.DEPTHS = config.MODEL.SWIN.DEPTHS[:-1]
-            config.freeze()
+            # config.defrost()
+            # config.MODEL.SWIN.DEPTHS = config.MODEL.SWIN.DEPTHS[:-1]
+            # config.freeze()
             self.model = build_model(config)
             load_pretrained(config, self.model, logger)
             # print(self.model.layers)
