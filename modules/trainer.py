@@ -213,15 +213,10 @@ class Trainer(BaseTrainer):
         self.model.train()
         with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
-<<<<<<< HEAD
                 images, reports_ids, reports_masks = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True)
-=======
-                images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
-                                                         reports_ids.to(self.device,non_blocking=True), \
-                                                         reports_masks.to(self.device, non_blocking=True)
->>>>>>> 9fd5548ebde1c0a093e0e28b3f7656a52ccd8f20
+
                 output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
                 train_loss += loss.item()
