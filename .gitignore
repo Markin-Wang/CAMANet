@@ -2,12 +2,12 @@ saved_models/*
 output/*
 tensorboard_logs/*
 output_logs/*
-pretrained_models/*
 apex
 results/*
 datasets/*
 *.pkl
-data/*
+data
+pretrained_models
 run_iu_xray*
 run_mimic_cxr*
 
