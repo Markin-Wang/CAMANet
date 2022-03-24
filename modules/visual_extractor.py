@@ -9,10 +9,16 @@ class VisualExtractor(nn.Module):
         super(VisualExtractor, self).__init__()
         self.ve_name = args.ve_name
         if args.ve_name == 'swin_transformer':
+            # config.defrost()
+            # config.MODEL.SWIN.DEPTHS = config.MODEL.SWIN.DEPTHS[:-1]
+            # config.freeze()
             self.model = build_model(config)
             load_pretrained(config, self.model, logger)
+            # print(self.model.layers)
             # self.model.layers = self.model.layers[:-1]
+            # print(self.model.layers)
             # self.model.num_layers = self.model.num_layers - 1
+            # self.model.num_features = int(self.model.embed_dim * 2 ** (self.model.num_layers - 1))
             self.num_features = self.model.num_features
         elif args.ve_name == 'resnet101':
             model = getattr(models, args.ve_name)(pretrained=True)

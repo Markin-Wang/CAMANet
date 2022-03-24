@@ -64,6 +64,7 @@ class BaseTrainer(object):
 
     def train(self):
         not_improved_count = 0
+        best_epoch = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
 
@@ -94,6 +95,7 @@ class BaseTrainer(object):
                     self.mnt_best = log[self.mnt_metric]
                     not_improved_count = 0
                     best = True
+                    best_epoch = epoch
                 else:
                     not_improved_count += 1
 
@@ -101,6 +103,7 @@ class BaseTrainer(object):
                     self.logger.info("Validation performance didn\'t improve for {} epochs. " "Training stops.".format(
                         self.early_stop))
                     break
+            self.logger.info('current best model in: {}'.format(best_epoch))
 
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
@@ -210,9 +213,15 @@ class Trainer(BaseTrainer):
         self.model.train()
         with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
+<<<<<<< HEAD
                 images, reports_ids, reports_masks = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True)
+=======
+                images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                                                         reports_ids.to(self.device,non_blocking=True), \
+                                                         reports_masks.to(self.device, non_blocking=True)
+>>>>>>> 9fd5548ebde1c0a093e0e28b3f7656a52ccd8f20
                 output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
                 train_loss += loss.item()

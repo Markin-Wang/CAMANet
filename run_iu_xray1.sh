@@ -1,0 +1,22 @@
+CUDA_VISIBLE_DEVICES=0 python main.py \
+--exp_name stsmall_r2gen_4bk_2e-3_1e-3_adam_ss5_gm08_wd5e-5 \
+--image_dir data/iu_xray/images/ \
+--ann_path data/iu_xray/annotation.json \
+--dataset_name iu_xray \
+--max_seq_length 60 \
+--threshold 3 \
+--batch_size 16 \
+--epochs 25 \
+--lr_ve 2e-3 \
+--lr_ed 1e-3 \
+--save_dir results/iu_xray1 \
+--step_size 5 \
+--gamma 0.8 \
+--seed 9223 \
+--cfg configs/swin_small_patch4_window7_224.yaml \
+--pretrained ./pretrained_models/swin_small_patch4_window7_224.pth \
+--ve_name resnet101 \
+--early_stop 15 \
+--d_vf 2048 \
+--weight_decay 5e-5 \
+--optim Adam \

@@ -1,15 +1,15 @@
-python main.py \
---exp_name stsmall_r2gen_4bk_5e-5_1e-4_adam_ss50_gm08_wd5e-5 \
+CUDA_VISIBLE_DEVICES=0 python main.py \
+--exp_name resnet101_r2gen_4bk_1e-4_2e-4_adam_ss50_gm08_wd5e-5 \
 --image_dir data/iu_xray/images/ \
 --ann_path data/iu_xray/annotation.json \
 --dataset_name iu_xray \
 --max_seq_length 60 \
 --threshold 3 \
 --batch_size 16 \
---epochs 25 \
---lr_ve 5e-5 \
---lr_ed 1e-4 \
---save_dir results/iu_xray \
+--epochs 20 \
+--lr_ve 1e-4 \
+--lr_ed 2e-4 \
+--save_dir results/iu_xray1 \
 --step_size 50 \
 --gamma 0.8 \
 --seed 9223 \
