@@ -81,7 +81,7 @@ def main():
 
     # build optimizer, learning rate scheduler
     optimizer = build_optimizer(args, model)
-    lr_scheduler = build_lr_scheduler(args, optimizer)
+    lr_scheduler = build_lr_scheduler(config, optimizer, len(train_dataloader))
 
     # build trainer and start to train
     trainer = Trainer(model, criterion, metrics, optimizer, args, lr_scheduler, tokenizer,

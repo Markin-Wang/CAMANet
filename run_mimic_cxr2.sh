@@ -9,7 +9,7 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
 --epochs 25 \
 --lr_ve 3e-3 \
 --lr_ed 3e-3 \
---save_dir results/mimic_cxr2 \
+--save_dir results/mimic_cxr \
 --step_size 50 \
 --gamma 0.8 \
 --seed 456789 \

@@ -47,7 +47,7 @@ class BaseTrainer(object):
         self.early_stop = getattr(self.args, 'early_stop', inf)
 
         self.start_epoch = 1
-        self.checkpoint_dir = args.save_dir
+        self.checkpoint_dir = os.path.join(args.save_dir, args.exp_name)
 
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
@@ -210,8 +210,11 @@ class Trainer(BaseTrainer):
 
         train_loss = 0
         val_loss = 0
+        num_steps = len(self.train_dataloader)
         self.model.train()
-        with tqdm(desc='Epoch %d - train' % epoch, unit='it', total=len(self.train_dataloader)) as pbar:
+        cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
+        with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
+                  unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
                 images, reports_ids, reports_masks = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
@@ -224,6 +227,8 @@ class Trainer(BaseTrainer):
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
+                self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
+                cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
                 pbar.set_postfix(loss=train_loss / (batch_idx + 1))
                 pbar.update()
             log = {'train_loss': train_loss / len(self.train_dataloader)}
@@ -258,7 +263,7 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar('data/val_meteor', val_met['METEOR'], epoch)
                 self.writer.add_scalar('data/val_rouge-l', val_met['ROUGE_L'], epoch)
         self.writer.add_scalar('data/val_loss', val_loss, epoch)
-        self.lr_scheduler.step()
+
 
         self.model.eval()
         with tqdm(desc='Epoch %d - test' % epoch, unit='it', total=len(self.test_dataloader)) as pbar:

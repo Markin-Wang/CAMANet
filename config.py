@@ -114,7 +114,7 @@ _C.TRAIN.USE_CHECKPOINT = False
 _C.TRAIN.LR_SCHEDULER = CN()
 _C.TRAIN.LR_SCHEDULER.NAME = 'step'
 # Epoch interval to decay LR, used in StepLRScheduler
-_C.TRAIN.LR_SCHEDULER.DECAY_EPOCHS = 1
+_C.TRAIN.LR_SCHEDULER.DECAY_EPOCHS = 10
 # LR decay rate, used in StepLRScheduler
 _C.TRAIN.LR_SCHEDULER.DECAY_RATE = 0.1
 
@@ -237,6 +237,18 @@ def update_config(config, args):
         config.EVAL_MODE = True
     if args.throughput:
         config.THROUGHPUT_MODE = True
+    if args.warmup_lr:
+        config.TRAIN.WARMUP_LR = args.warmup_lr
+    if args.lr_scheduler:
+        config.TRAIN.LR_SCHEDULER.NAME = args.lr_scheduler
+    if args.warmup_epochs:
+        config.TRAIN.WARMUP_EPOCHS = args.warmup_epochs
+    if args.decay_epochs:
+        config.TRAIN.LR_SCHEDULER.DECAY_EPOCHS = args.decay_epochs
+    if args.epochs:
+        config.TRAIN.EPOCHS = args.epochs
+    if args.decay_rate:
+        config.TRAIN.LR_SCHEDULER.DECAY_RATE = args.decay_rate
 
     # set local rank for distributed training
     config.LOCAL_RANK = args.local_rank

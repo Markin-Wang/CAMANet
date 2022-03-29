@@ -135,6 +135,8 @@ def parse_args():
     parser.add_argument('--temperature', type=float, default=1.0, help='the temperature when sampling.')
     parser.add_argument('--sample_n', type=int, default=1, help='the sample number per image.')
     parser.add_argument('--group_size', type=int, default=1, help='the group size.')
+    parser.add_argument('--warmup_lr', type=float, default=1e-5, help='warm up learning rate.')
+    parser.add_argument('--warmup_epochs', type=int, default=5, help='warm up epochs.')
     parser.add_argument('--output_logsoftmax', type=int, default=1, help='whether to output the probabilities.')
     parser.add_argument('--decoding_constraint', type=int, default=0, help='whether decoding constraint.')
     parser.add_argument('--block_trigrams', type=int, default=1, help='whether to use block trigrams.')
@@ -154,12 +156,13 @@ def parse_args():
     parser.add_argument('--lr_ve', type=float, default=5e-5, help='the learning rate for the visual extractor.')
     parser.add_argument('--lr_ed', type=float, default=1e-4, help='the learning rate for the remaining parameters.')
     parser.add_argument('--weight_decay', type=float, default=5e-5, help='the weight decay.')
+    parser.add_argument('--decay_epochs', type=int, default=10, help='the weight decay.')
     parser.add_argument('--amsgrad', type=bool, default=True, help='.')
 
     # Learning Rate Scheduler
-    parser.add_argument('--lr_scheduler', type=str, default='StepLR', help='the type of the learning rate scheduler.')
+    parser.add_argument('--lr_scheduler', type=str, default='step', help='the type of the learning rate scheduler.')
     parser.add_argument('--step_size', type=int, default=50, help='the step size of the learning rate scheduler.')
-    parser.add_argument('--gamma', type=float, default=0.1, help='the gamma of the learning rate scheduler.')
+    parser.add_argument('--decay_rate', type=float, default=0.8, help='the gamma of the learning rate scheduler.')
 
     # Others
     parser.add_argument('--seed', type=int, default=9233, help='.')
