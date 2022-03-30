@@ -80,11 +80,13 @@ class BaseTrainer(object):
 
             # evaluate model performance according to configured metric, save best checkpoint as model_best
             best = False
+            self.mnt_best = 0
             if self.mnt_mode != 'off':
                 try:
                     # check whether model performance improved or not, according to specified metric(mnt_metric)
-                    improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
-                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
+                    cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.125 * log['val_BLEU_1']
+                    improved = (self.mnt_mode == 'min' and cur_metric <= self.mnt_best) or \
+                               (self.mnt_mode == 'max' and cur_metric >= self.mnt_best)
                 except KeyError:
                     self.logger.info("Warning: Metric '{}' is not found. " "Model performance monitoring is disabled.".format(
                         self.mnt_metric))
@@ -92,7 +94,7 @@ class BaseTrainer(object):
                     improved = False
 
                 if improved:
-                    self.mnt_best = log[self.mnt_metric]
+                    self.mnt_best = cur_metric
                     not_improved_count = 0
                     best = True
                     best_epoch = epoch

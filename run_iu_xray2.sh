@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=1 python main.py \
---exp_name ststiny_4bk_1e-3_1e-3_sgd_wd5e-5_wu0_2e-4_dc50_08_sd9223_g2 \
+--exp_name ststiny_4bk_5e-4_1e-3_aw_wd5e-5_wu0_2e-4_dc50_08_sd9223_g2 \
 --image_dir data/iu_xray/images/ \
 --ann_path data/iu_xray/annotation.json \
 --dataset_name iu_xray \
@@ -7,7 +7,7 @@ CUDA_VISIBLE_DEVICES=1 python main.py \
 --threshold 3 \
 --batch_size 16 \
 --epochs 30 \
---lr_ve 1e-3 \
+--lr_ve 5e-4 \
 --lr_ed 1e-3 \
 --save_dir ./results/iu_xray \
 --cfg configs/swin_tiny_patch4_window7_224.yaml \
@@ -16,7 +16,7 @@ CUDA_VISIBLE_DEVICES=1 python main.py \
 --early_stop 15 \
 --d_vf 768 \
 --weight_decay 5e-5 \
---optim SGD \
+--optim AdamW \
 --decay_epochs 50 \
 --warmup_epochs 0 \
 --warmup_lr 2e-4 \
