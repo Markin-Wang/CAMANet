@@ -65,6 +65,7 @@ class BaseTrainer(object):
     def train(self):
         not_improved_count = 0
         best_epoch = 0
+        self.mnt_best = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
 
@@ -80,13 +81,12 @@ class BaseTrainer(object):
 
             # evaluate model performance according to configured metric, save best checkpoint as model_best
             best = False
-            self.mnt_best = 0
             if self.mnt_mode != 'off':
                 try:
                     # check whether model performance improved or not, according to specified metric(mnt_metric)
                     cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.125 * log['val_BLEU_1']
                     improved = (self.mnt_mode == 'min' and cur_metric <= self.mnt_best) or \
-                               (self.mnt_mode == 'max' and cur_metric >= self.mnt_best)
+                               (self.mnt_mode == 'max' and cur_metric > self.mnt_best)
                 except KeyError:
                     self.logger.info("Warning: Metric '{}' is not found. " "Model performance monitoring is disabled.".format(
                         self.mnt_metric))
@@ -173,15 +173,18 @@ class BaseTrainer(object):
         print("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
     def _record_best(self, log):
-        improved_val = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.best_recorder['val'][
+        cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.125 * log['val_BLEU_1']
+        improved_val = (self.mnt_mode == 'min' and cur_metric <= self.best_recorder['val'][
             self.mnt_metric]) or \
-                       (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.best_recorder['val'][self.mnt_metric])
+                       (self.mnt_mode == 'max' and cur_metric > self.best_recorder['val'][self.mnt_metric])
         if improved_val:
             self.best_recorder['val'].update(log)
 
-        improved_test = (self.mnt_mode == 'min' and log[self.mnt_metric_test] <= self.best_recorder['test'][
+        cur_metric = log['test_BLEU_4'] + 0.5 * log['test_METEOR'] + 0.125 * log['test_BLEU_1']
+
+        improved_test = (self.mnt_mode == 'min' and cur_metric <= self.best_recorder['test'][
             self.mnt_metric_test]) or \
-                        (self.mnt_mode == 'max' and log[self.mnt_metric_test] >= self.best_recorder['test'][
+                        (self.mnt_mode == 'max' and cur_metric > self.best_recorder['test'][
                             self.mnt_metric_test])
         if improved_test:
             self.best_recorder['test'].update(log)
