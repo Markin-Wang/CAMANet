@@ -44,6 +44,7 @@ class BaseTrainer(object):
         assert self.mnt_mode in ['min', 'max']
 
         self.mnt_best = inf if self.mnt_mode == 'min' else -inf
+        self.mnt_test_best = inf if self.mnt_mode == 'min' else -inf
         self.early_stop = getattr(self.args, 'early_stop', inf)
 
         self.start_epoch = 1
@@ -65,7 +66,6 @@ class BaseTrainer(object):
     def train(self):
         not_improved_count = 0
         best_epoch = 0
-        self.mnt_best = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
 
@@ -174,20 +174,18 @@ class BaseTrainer(object):
 
     def _record_best(self, log):
         cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.125 * log['val_BLEU_1']
-        improved_val = (self.mnt_mode == 'min' and cur_metric <= self.best_recorder['val'][
-            self.mnt_metric]) or \
-                       (self.mnt_mode == 'max' and cur_metric > self.best_recorder['val'][self.mnt_metric])
+        improved_val = (self.mnt_mode == 'min' and cur_metric <= self.mnt_best) or \
+                       (self.mnt_mode == 'max' and cur_metric > self.mnt_best)
         if improved_val:
             self.best_recorder['val'].update(log)
 
         cur_metric = log['test_BLEU_4'] + 0.5 * log['test_METEOR'] + 0.125 * log['test_BLEU_1']
 
-        improved_test = (self.mnt_mode == 'min' and cur_metric <= self.best_recorder['test'][
-            self.mnt_metric_test]) or \
-                        (self.mnt_mode == 'max' and cur_metric > self.best_recorder['test'][
-                            self.mnt_metric_test])
+        improved_test = (self.mnt_mode == 'min' and cur_metric <= self.mnt_test_best) or \
+                        (self.mnt_mode == 'max' and cur_metric > self.mnt_test_best)
         if improved_test:
             self.best_recorder['test'].update(log)
+            self.mnt_test_best = cur_metric
 
     def _print_best(self):
         print('Best results (w.r.t {}) in validation set:'.format(self.args.monitor_metric))
