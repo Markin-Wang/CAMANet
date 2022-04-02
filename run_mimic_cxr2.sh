@@ -1,22 +1,25 @@
-CUDA_VISIBLE_DEVICES=0 python main.py \
---exp_name mimic_stsmall_r2gen_4bk_3e-3_3e-3_sgd_ss10_gm08_wd5e-5 \
---image_dir data/mimic_cxr/images/ \
---ann_path data/mimic_cxr/annotation.json \
+CUDA_VISIBLE_DEVICES=1 python main.py \
+--exp_name mimic_sttiny_4bk_2e-3_1e-3_am_wd5e-5_wu3_2e-4_dc50_06_sd9223_ep30_bs32_g2 \
+--image_dir data/mimic-cxr-dsr2/images/ \
+--ann_path data/mimic-cxr-dsr2/annotation.json \
 --dataset_name mimic_cxr \
 --max_seq_length 100 \
 --threshold 30 \
---batch_size 16 \
---epochs 25 \
---lr_ve 3e-3 \
---lr_ed 3e-3 \
---save_dir results/mimic_cxr \
---step_size 50 \
---gamma 0.8 \
---seed 456789 \
---cfg configs/swin_small_patch4_window7_224.yaml \
---pretrained ./pretrained_models/swin_small_patch4_window7_224.pth \
+--batch_size 32 \
+--epochs 30 \
+--lr_ve 2e-3 \
+--lr_ed 1e-3 \
+--save_dir results/mimic_cxr1 \
+--cfg configs/swin_tiny_patch4_window7_224.yaml \
+--pretrained ./pretrained_models/swin_tiny_patch4_window7_224.pth \
 --ve_name swin_transformer \
---early_stop 15 \
+--early_stop 10 \
 --d_vf 768 \
 --weight_decay 5e-5 \
 --optim Adam \
+--decay_epochs 50 \
+--warmup_epochs 3 \
+--warmup_lr 2e-4 \
+--lr_scheduler step \
+--decay_rate 0.6 \
+--seed 456789

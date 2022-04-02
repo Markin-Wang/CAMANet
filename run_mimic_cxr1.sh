@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=0 python main.py \
---exp_name mimic_sttiny_4bk_1e-3_1e-3_adam_wd5e-3_wu0_2e-4_dc50_06_sd9223_ep30_bs32_g1 \
+--exp_name mimic_sttiny_4bk_1e-3_1e-3_adam_wd5e-4_wu0_2e-4_dc50_06_sd9223_ep30_bs32_g1 \
 --image_dir data/mimic-cxr-dsr2/images/ \
 --ann_path data/mimic-cxr-dsr2/annotation.json \
 --dataset_name mimic_cxr \
@@ -15,8 +15,8 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
 --ve_name swin_transformer \
 --early_stop 10 \
 --d_vf 768 \
---weight_decay 5e-3 \
---optim AdamW \
+--weight_decay 5e-4 \
+--optim Adam \
 --decay_epochs 50 \
 --warmup_epochs 0 \
 --warmup_lr 2e-4 \
