@@ -247,6 +247,9 @@ def update_config(config, args):
         config.TRAIN.LR_SCHEDULER.DECAY_EPOCHS = args.decay_epochs
     if args.epochs:
         config.TRAIN.EPOCHS = args.epochs
+    if args.weight_decay:
+        config.TRAIN.WEIGHT_DECAY = args.weight_decay
+
     if args.decay_rate:
         config.TRAIN.LR_SCHEDULER.DECAY_RATE = args.decay_rate
 
