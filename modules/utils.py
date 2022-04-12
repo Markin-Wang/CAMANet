@@ -1,5 +1,5 @@
 import torch
-from config import get_config
+from config_swin import get_config
 import argparse
 import torch.distributed as dist
 
@@ -89,7 +89,7 @@ def parse_args():
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
     parser.add_argument('--ve_name', type=str, help='visual extractor name', default='swin_transformer',
-                        choices=['swin_transformer', 'resnet101'])
+                        choices=['swin_transformer', 'resnet101', 'ViT-B_16', 'ViT-B_32'])
 
     # distributed training
     parser.add_argument("--local_rank", type=int, default = -1, help='local rank for DistributedDataParallel')
@@ -162,6 +162,7 @@ def parse_args():
     # Learning Rate Scheduler
     parser.add_argument('--lr_scheduler', type=str, default='step', help='the type of the learning rate scheduler.')
     parser.add_argument('--step_size', type=int, default=50, help='the step size of the learning rate scheduler.')
+    parser.add_argument('--img_size', type=int, default=224, help='the image size for ViT construction.')
     parser.add_argument('--decay_rate', type=float, default=0.8, help='the gamma of the learning rate scheduler.')
 
     # Others
