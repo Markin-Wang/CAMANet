@@ -90,6 +90,8 @@ def parse_args():
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
     parser.add_argument('--ve_name', type=str, help='visual extractor name', default='swin_transformer',
                         choices=['swin_transformer', 'resnet101', 'ViT-B_16', 'ViT-B_32'])
+    parser.add_argument('--ed_name', type=str, help='visual extractor name', default='r2gen',
+                        choices=['r2gen', 'st_trans'])
 
     # distributed training
     parser.add_argument("--local_rank", type=int, default = -1, help='local rank for DistributedDataParallel')

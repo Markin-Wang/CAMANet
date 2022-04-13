@@ -9,7 +9,7 @@ from modules.metrics import compute_scores
 from modules.optimizers import build_optimizer, build_lr_scheduler
 from modules.trainer import Trainer
 from modules.loss import compute_loss
-from models.r2gen import R2GenModel
+from models.model import R2GenModel
 from modules.utils import parse_args
 from modules.logger import create_logger
 import torch.distributed as dist

@@ -5,6 +5,7 @@ output_logs/*
 apex
 results/*
 datasets/*
+pycocoevalcap
 *.pkl
 data
 pretrained_models
