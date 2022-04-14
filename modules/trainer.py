@@ -120,10 +120,10 @@ class BaseTrainer(object):
         self.best_recorder['test']['seed'] = self.args.seed
         self.best_recorder['val']['best_model_from'] = 'val'
         self.best_recorder['test']['best_model_from'] = 'test'
-
-        if not os.path.exists(self.args.record_dir):
-            os.makedirs(self.args.record_dir)
-        record_path = os.path.join(self.args.record_dir, self.args.dataset_name+'.csv')
+        record_dir = os.path.join(self.args.record_dir, self.args.dataset_name)
+        if not os.path.exists(record_dir):
+            os.makedirs(record_dir)
+        record_path = os.path.join(record_dir, self.args.exp_name+'.csv')
         if not os.path.exists(record_path):
             record_table = pd.DataFrame()
         else:
@@ -188,6 +188,7 @@ class BaseTrainer(object):
             self.mnt_test_best = cur_metric
 
     def _print_best(self):
+        print('exp_name:', self.args.exp_name)
         print('Best results (w.r.t {}) in validation set:'.format(self.args.monitor_metric))
         for key, value in self.best_recorder['val'].items():
             print('\t{:15s}: {}'.format(str(key), value))
