@@ -177,7 +177,7 @@ _C.TAG = 'default'
 # Frequency to save checkpoint
 _C.SAVE_FREQ = 1
 # Frequency to logging info
-_C.PRINT_FREQ = 10
+_C.PRINT_FREQ = 50
 # Fixed random seed
 _C.SEED = 0
 # Perform evaluation only, overwritten by command line argument

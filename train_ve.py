@@ -292,14 +292,13 @@ def train(args, config, model):
     losses = AverageMeter()
     global_step, max_accuracy = 0, 0.0
     criterion = torch.nn.BCEWithLogitsLoss()
-
+    mac_auc = 0
     start_time = time.time()
+    best_epoch = 0
     for epoch in range(args.epochs):
         #data_loader_train.sampler.set_epoch(epoch)
 
         train_one_epoch(config, model, criterion, train_loader, optimizer, epoch, None, scheduler, writer)
-        # if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-        #     save_checkpoint(config, epoch, model, max_accuracy, optimizer, scheduler, logger)
 
         acc1, auc, loss = validate(config, val_loader, model)
         auc_socre = auc.mean()
@@ -307,10 +306,14 @@ def train(args, config, model):
         writer.add_scalar('data/val_acc', acc1)
         writer.add_scalar('data/auc_score', auc_socre)
         writer.add_text('data/auc', str(auc))
+        if  auc_socre > mac_auc:
+            max_auc = auc_socre
+            best_epoch = epoch
+            save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        logger.info(f"Accuracy of the network on the {len(val_loader)} test images: {acc1:.1f}%")
-        max_accuracy = max(max_accuracy, acc1)
-        logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+        logger.info(f"Auc of the network on the {len(val_loader)} test images: {auc_socre:.1f}%")
+        logger.info(f'Max accuracy: {max_auc:.2f}%')
+        logger.info(f'Best model in epoch: {best_epoch}')
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
