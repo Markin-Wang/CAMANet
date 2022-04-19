@@ -1,0 +1,26 @@
+CUDA_VISIBLE_DEVICES=0 python train_ve.py \
+--exp_name sttiny_strns_2e-3_1e-3_am_wd5e-5_wu0_1e-4_dc50_08_sd9223_ep30_ml60 \
+--image_dir data/iu_xray/images/ \
+--ann_path data/iu_xray/annotation.json \
+--dataset_name chexpert \
+--max_seq_length 60 \
+--threshold 30 \
+--batch_size 16 \
+--epochs 5 \
+--lr_ve 1e-4 \
+--lr_ed 1e-3 \
+--save_dir ./results/chexpert \
+--cfg configs/swin_tiny_patch4_window7_224.yaml \
+--pretrained ./pretrained_models/swin_tiny_patch4_window7_224.pth \
+--ve_name densenet121 \
+--ed_name st_trans \
+--early_stop 10 \
+--d_vf 768 \
+--weight_decay 5e-5 \
+--optim Adam \
+--decay_epochs 50 \
+--warmup_epochs 0 \
+--warmup_lr 1e-4 \
+--lr_scheduler step \
+--decay_rate 0.8 \
+--seed 9223 \

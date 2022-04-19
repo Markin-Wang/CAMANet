@@ -30,6 +30,31 @@ def build_optimizer(args, model):
         )
     return optimizer
 
+def build_optimizer_cls(args, model):
+    if args.optim == 'Adam':
+        optimizer =torch.optim.Adam(
+            [{'params': model.model.parameters(), 'lr': args.lr_ve},
+             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+            weight_decay=args.weight_decay,
+            amsgrad=args.amsgrad
+        )
+    elif args.optim == 'AdamW':
+        optimizer =torch.optim.AdamW(
+            [{'params': model.model.parameters(), 'lr': args.lr_ve},
+             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+            weight_decay=args.weight_decay,
+            amsgrad=args.amsgrad
+        )
+    elif args.optim == 'SGD':
+        optimizer = torch.optim.SGD(
+            [{'params': model.model.parameters(), 'lr': args.lr_ve},
+             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+            weight_decay=args.weight_decay,
+            momentum = 0.9,
+            nesterov=True,
+        )
+    return optimizer
+
 
 def build_lr_scheduler(config, optimizer, n_iter_per_epoch):
     num_steps = int(config.TRAIN.EPOCHS * n_iter_per_epoch)

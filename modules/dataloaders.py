@@ -34,8 +34,10 @@ class R2DataLoader(DataLoader):
 
         if self.dataset_name == 'iu_xray':
             self.dataset = IuxrayMultiImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
-        else:
+        elif self.dataset_name.startswith('mimic'):
             self.dataset = MimiccxrSingleImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
+
+
         # num_tasks = dist.get_world_size()
         # global_rank = dist.get_rank()
         #

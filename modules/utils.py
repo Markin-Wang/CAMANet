@@ -2,6 +2,10 @@ import torch
 from config_swin import get_config
 import argparse
 import torch.distributed as dist
+import cv2
+import torchvision.transforms as tfs
+import numpy as np
+
 
 def penalty_builder(penalty_config):
     if penalty_config == '':
@@ -89,7 +93,7 @@ def parse_args():
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
     parser.add_argument('--throughput', action='store_true', help='Test throughput only')
     parser.add_argument('--ve_name', type=str, help='visual extractor name', default='swin_transformer',
-                        choices=['swin_transformer', 'resnet101', 'ViT-B_16', 'ViT-B_32'])
+                        choices=['swin_transformer', 'resnet101', 'ViT-B_16', 'ViT-B_32', 'densenet121'])
     parser.add_argument('--ed_name', type=str, help='visual extractor name', default='r2gen',
                         choices=['r2gen', 'st_trans'])
 
@@ -103,7 +107,7 @@ def parse_args():
     parser.add_argument('--ann_path', type=str, default='data/iu_xray/annotation.json', help='the path to the directory containing the data.')
 
     # Data loader settings
-    parser.add_argument('--dataset_name', type=str, default='iu_xray', choices=['iu_xray', 'mimic_cxr'], help='the dataset to be used.')
+    parser.add_argument('--dataset_name', type=str, default='iu_xray', choices=['iu_xray', 'mimic_cxr', 'chexpert'], help='the dataset to be used.')
     parser.add_argument('--max_seq_length', type=int, default=60, help='the maximum sequence length of the reports.')
     parser.add_argument('--threshold', type=int, default=3, help='the cut off frequency for the words.')
     parser.add_argument('--num_workers', type=int, default=4, help='the number of workers for dataloader.')
@@ -169,6 +173,7 @@ def parse_args():
 
     # Others
     parser.add_argument('--seed', type=int, default=9233, help='.')
+    parser.add_argument('--fp16', type=bool, default=False, help='whether to use fp16 training')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)
@@ -316,3 +321,106 @@ def reduce_tensor(tensor):
     dist.all_reduce(rt, op=dist.ReduceOp.SUM)
     rt /= dist.get_world_size()
     return rt
+
+# for classification
+
+def border_pad(image, cfg):
+    h, w, c = image.shape
+
+    if cfg.border_pad == 'zero':
+        image = np.pad(image, ((0, cfg.long_side - h),
+                               (0, cfg.long_side - w), (0, 0)),
+                       mode='constant',
+                       constant_values=0.0)
+    elif cfg.border_pad == 'pixel_mean':
+        image = np.pad(image, ((0, cfg.long_side - h),
+                               (0, cfg.long_side - w), (0, 0)),
+                       mode='constant',
+                       constant_values=cfg.pixel_mean)
+    else:
+        image = np.pad(image, ((0, cfg.long_side - h),
+                               (0, cfg.long_side - w), (0, 0)),
+                       mode=cfg.border_pad)
+
+    return image
+
+
+def fix_ratio(image, cfg):
+    h, w, c = image.shape
+
+    if h >= w:
+        ratio = h * 1.0 / w
+        h_ = cfg.long_side
+        w_ = round(h_ / ratio)
+    else:
+        ratio = w * 1.0 / h
+        w_ = cfg.long_side
+        h_ = round(w_ / ratio)
+
+    image = cv2.resize(image, dsize=(w_, h_), interpolation=cv2.INTER_LINEAR)
+    image = border_pad(image, cfg)
+
+    return image
+
+
+def transform(image, cfg):
+    assert image.ndim == 2, "image must be gray image"
+    if cfg.use_equalizeHist:
+        image = cv2.equalizeHist(image)
+
+    if cfg.gaussian_blur > 0:
+        image = cv2.GaussianBlur(
+            image,
+            (cfg.gaussian_blur, cfg.gaussian_blur), 0)
+
+    image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+
+    image = fix_ratio(image, cfg)
+    # augmentation for train or co_train
+
+    # normalization
+    image = image.astype(np.float32) - cfg.pixel_mean
+    # vgg and resnet do not use pixel_std, densenet and inception use.
+    if cfg.pixel_std:
+        image /= cfg.pixel_std
+    # normal image tensor :  H x W x C
+    # torch image tensor :   C X H X W
+    image = image.transpose((2, 0, 1))
+
+    return image
+
+def Common(image):
+
+    image = cv2.equalizeHist(image)
+    image = cv2.GaussianBlur(image, (3, 3), 0)
+
+    return image
+
+
+def Aug(image):
+    img_aug = tfs.Compose([
+        tfs.RandomAffine(degrees=(-15, 15), translate=(0.05, 0.05),
+                         scale=(0.95, 1.05), fillcolor=128)
+    ])
+    image = img_aug(image)
+
+    return image
+
+
+def GetTransforms(image, target=None, type='common'):
+    # taget is not support now
+    if target is not None:
+        raise Exception(
+            'Target is not support now ! ')
+    # get type
+    if type.strip() == 'Common':
+        image = Common(image)
+        return image
+    elif type.strip() == 'None':
+        return image
+    elif type.strip() == 'Aug':
+        image = Aug(image)
+        return image
+    else:
+        raise Exception(
+            'Unknown transforms_type : '.format(type))
