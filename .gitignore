@@ -12,6 +12,7 @@ pretrained_models
 run_iu_xray*
 run_mimic_cxr*
 *.pt
+logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
