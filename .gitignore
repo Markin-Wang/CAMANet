@@ -13,6 +13,7 @@ run_iu_xray*
 run_mimic_cxr*
 *.pt
 logs
+train_chexpert_cls.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
