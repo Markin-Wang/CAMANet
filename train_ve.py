@@ -138,6 +138,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
+        break
     writer.add_scalar('data/train_loss', loss_meter.avg)
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
@@ -182,7 +183,7 @@ def validate(config, data_loader, model):
             predlist = np.append(predlist, logits.cpu().numpy(), axis=0)
             true_list = np.append(true_list, target.cpu().numpy(), axis=0)
         pred_labels = logits.ge(0.5)
-        acc = (target == pred_labels).float().sum() / len(pred_labels)
+        acc = (target == pred_labels).float().sum() / (pred_labels.shape[-1]*pred_labels.shape[-2])
         # loss = reduce_tensor(loss)
         # acc = reduce_tensor(acc)
         loss_meter.update(loss.item(), target.size(0))
@@ -333,7 +334,7 @@ def train(args, config, model):
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        logger.info('Auc for all classes', str(auc))
+        logger.info('Auc for all classes: '+', '.join([str(round(x.item(),5)) for x in auc]))
         logger.info(f' * Auc@1 {auc.mean():.3f}')
         logger.info(f' * Acc@1 {acc1:.3f} ')
         logger.info(f'Best model in epoch: {best_epoch}')
