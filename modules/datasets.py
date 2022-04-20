@@ -144,6 +144,59 @@ class ChexPert(Dataset):
         else:
             raise Exception('Unknown mode : {}'.format(self._mode))
 
+
+class IuxrayMultiImageClsDataset(Dataset):
+    def __init__(self, args, tokenizer, split, transform=None):
+        self.image_dir = os.path.join(args.data_dir, 'images')
+        self.ann_path = os.path.join(args.data_dir, 'annotation.json')
+        self.split = split
+        self.label_path = os.path.join(args.data_dir, 'labels.json')
+        self.transform = transform
+        self.ann = json.loads(open(self.ann_path, 'r').read())
+
+        self.examples = self.ann[self.split]
+
+    def __getitem__(self, idx):
+        example = self.examples[idx]
+        image_id = example['id']
+        label = self.labels[image_id]
+        image_path = example['image_path']
+        image_1 = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
+        image_2 = Image.open(os.path.join(self.image_dir, image_path[1])).convert('RGB')
+        if self.transform is not None:
+            image_1 = self.transform(image_1)
+            image_2 = self.transform(image_2)
+        image = torch.stack((image_1, image_2), 0)
+        #sample = (image_id, image, report_ids, report_masks, seq_length)
+        #sample = (image, label)
+        return image, label
+
+
+class MimiccxrSingleImageClsDataset(BaseDataset):
+    def __init__(self, args, tokenizer, split, transform=None):
+        self.image_dir = os.path.join(args.data_dir, 'images')
+        self.ann_path = os.path.join(args.data_dir, 'annotation.json')
+        self.split = split
+        self.label_path = os.path.join(args.data_dir, 'labels.json')
+        self.transform = transform
+        self.ann = json.loads(open(self.ann_path, 'r').read())
+
+        self.examples = self.ann[self.split]
+
+    def __getitem__(self, idx):
+        example = self.examples[idx]
+        image_id = example['id']
+        label = self.labels[image_id]
+        image_path = example['image_path']
+        image = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
+        if self.transform is not None:
+            image = self.transform(image)
+        # report_ids = example['ids']
+        # report_masks = example['mask']
+        # seq_length = len(report_ids)
+        #sample = (image_id, image, report_ids, report_masks, seq_length)
+        return image, label
+
 #
 # class CheXpertDataSet(Dataset):
 #     def __init__(self, image_list_file, transform=None, policy="ones"):

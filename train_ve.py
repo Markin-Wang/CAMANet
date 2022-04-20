@@ -263,11 +263,11 @@ def train(args, config, model):
                                      (0.229, 0.224, 0.225))])
             train_loader = DataLoader(
                 ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform),
-                batch_size=cfg.train_batch_size, num_workers=args.num_workers,
+                batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=True, shuffle=True)
             val_loader = DataLoader(
                 ChexPert(cfg.dev_csv, cfg, mode='dev',transform=test_transform),
-                batch_size=cfg.dev_batch_size, num_workers=args.num_workers,
+                batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=False, shuffle=False)
             test_dataloader = val_loader
     else:

@@ -1,5 +1,6 @@
 .gitignore
 saved_models/*
+records
 output/*
 tensorboard_logs/*
 output_logs/*
