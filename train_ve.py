@@ -202,8 +202,6 @@ def validate(config, data_loader, model):
                 #f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
     auc, confusion_matrix = calculate_metricx(predlist, true_list)
-    logger.info(f' * Auc@1 {auc.mean():.3f}')
-    logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, auc, loss_meter.avg
 
 
@@ -325,21 +323,23 @@ def train(args, config, model):
         train_one_epoch(config, model, criterion, train_loader, optimizer, epoch, None, scheduler, writer)
 
         acc1, auc, loss = validate(config, val_loader, model)
-        auc_socre = auc.mean()
+        auc_score = auc.mean()
         writer.add_scalar('data/val_loss', loss)
         writer.add_scalar('data/val_acc', acc1)
-        writer.add_scalar('data/auc_score', auc_socre)
+        writer.add_scalar('data/auc_score', auc_score)
         writer.add_text('data/auc', str(auc))
-        if  auc_socre > mac_auc:
-            max_auc = auc_socre
+        if  auc_score > mac_auc:
+            max_auc = auc_score
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        print('auc for all classes', auc)
+        logger.info('Auc for all classes', auc)
+        logger.info(f' * Auc@1 {auc.mean():.3f}')
+        logger.info(f' * Acc@1 {acc1:.3f} ')
+        logger.info(f'Best model in epoch: {best_epoch}')
 
     logger.info(f"Auc of the network on the {len(val_loader)} test images: {max_auc:.5f}%")
     logger.info(f'Max auc: {max_auc:.5f}%')
-    logger.info(f'Best model in epoch: {best_epoch}')
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
