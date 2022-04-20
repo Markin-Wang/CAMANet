@@ -333,7 +333,7 @@ def train(args, config, model):
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        logger.info('Auc for all classes', auc)
+        logger.info('Auc for all classes', str(auc))
         logger.info(f' * Auc@1 {auc.mean():.3f}')
         logger.info(f' * Acc@1 {acc1:.3f} ')
         logger.info(f'Best model in epoch: {best_epoch}')
