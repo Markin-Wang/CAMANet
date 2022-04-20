@@ -314,7 +314,7 @@ def train(args, config, model):
     losses = AverageMeter()
     global_step, max_accuracy = 0, 0.0
     criterion = torch.nn.BCEWithLogitsLoss()
-    mac_auc = 0
+    max_auc = 0
     start_time = time.time()
     best_epoch = 0
     for epoch in range(args.epochs):
@@ -328,7 +328,7 @@ def train(args, config, model):
         writer.add_scalar('data/val_acc', acc1)
         writer.add_scalar('data/auc_score', auc_score)
         writer.add_text('data/auc', str(auc))
-        if  auc_score > mac_auc:
+        if  auc_score > max_auc:
             max_auc = auc_score
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
