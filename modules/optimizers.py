@@ -34,21 +34,21 @@ def build_optimizer_cls(args, model):
     if args.optim == 'Adam':
         optimizer =torch.optim.Adam(
             [{'params': model.model.parameters(), 'lr': args.lr_ve},
-             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+             {'params': model.head.parameters(), 'lr':  args.lr_ed}],
             weight_decay=args.weight_decay,
             amsgrad=args.amsgrad
         )
     elif args.optim == 'AdamW':
         optimizer =torch.optim.AdamW(
             [{'params': model.model.parameters(), 'lr': args.lr_ve},
-             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+             {'params': model.head.parameters(), 'lr': args.lr_ed}],
             weight_decay=args.weight_decay,
             amsgrad=args.amsgrad
         )
     elif args.optim == 'SGD':
         optimizer = torch.optim.SGD(
             [{'params': model.model.parameters(), 'lr': args.lr_ve},
-             {'params': model.head.parameters(), 'lr': 5 * args.lr_ve}],
+             {'params': model.head.parameters(), 'lr':  args.lr_ed}],
             weight_decay=args.weight_decay,
             momentum = 0.9,
             nesterov=True,
