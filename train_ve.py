@@ -13,7 +13,8 @@ from modules.dataloaders import R2DataLoader
 from modules.tokenizers import Tokenizer
 import json
 from sklearn import metrics
-
+from torchvision import transforms
+import PIL
 
 import torch
 import torch.distributed as dist
@@ -237,12 +238,35 @@ def train(args, config, model):
     if args.dataset_name == 'chexpert':
         with open('./example.json') as f:
             cfg = edict(json.load(f))
+            train_transform = transforms.Compose([
+                transforms.Resize(256),
+                transforms.RandomCrop(224),
+                transforms.RandomApply([
+                    transforms.RandomRotation(15, resample=PIL.Image.BICUBIC),
+                    transforms.RandomAffine(0, translate=(
+                        0.2, 0.2), resample=PIL.Image.BICUBIC),
+                    transforms.RandomAffine(0, shear=20, resample=PIL.Image.BICUBIC),
+                    transforms.RandomAffine(0, scale=(0.8, 1.2),
+                                            resample=PIL.Image.BICUBIC)
+                ]),
+                transforms.RandomHorizontalFlip(),
+                #transforms.RandomPerspective(distortion_scale=0.2),
+                #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
+                transforms.ToTensor(),
+                #transforms.RandomErasing(scale=(0.02, 0.16), ratio=(0.3, 1.6)),
+                transforms.Normalize((0.485, 0.456, 0.406),
+                                     (0.229, 0.224, 0.225))])
+            test_transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.485, 0.456, 0.406),
+                                     (0.229, 0.224, 0.225))])
             train_loader = DataLoader(
-                ChexPert(cfg.train_csv, cfg, mode='train'),
+                ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform),
                 batch_size=cfg.train_batch_size, num_workers=args.num_workers,
                 drop_last=True, shuffle=True)
             val_loader = DataLoader(
-                ChexPert(cfg.dev_csv, cfg, mode='dev'),
+                ChexPert(cfg.dev_csv, cfg, mode='dev',transform=test_transform),
                 batch_size=cfg.dev_batch_size, num_workers=args.num_workers,
                 drop_last=False, shuffle=False)
             test_dataloader = val_loader
@@ -311,9 +335,11 @@ def train(args, config, model):
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        logger.info(f"Auc of the network on the {len(val_loader)} test images: {auc_socre:.1f}%")
-        logger.info(f'Max accuracy: {max_auc:.2f}%')
-        logger.info(f'Best model in epoch: {best_epoch}')
+        print('auc for all classes', auc)
+
+    logger.info(f"Auc of the network on the {len(val_loader)} test images: {max_auc:.5f}%")
+    logger.info(f'Max auc: {max_auc:.5f}%')
+    logger.info(f'Best model in epoch: {best_epoch}')
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))

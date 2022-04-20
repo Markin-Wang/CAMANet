@@ -64,7 +64,7 @@ class MimiccxrSingleImageDataset(BaseDataset):
 
 
 class ChexPert(Dataset):
-    def __init__(self, label_path, cfg, mode='train'):
+    def __init__(self, label_path, cfg, mode='train', transform = None):
         self.cfg = cfg
         self._label_header = None
         self._image_paths = []
@@ -72,7 +72,7 @@ class ChexPert(Dataset):
         self._mode = mode
         self.dict = [{'1.0': '1', '': '0', '0.0': '0', '-1.0': '0'},
                      {'1.0': '1', '': '0', '0.0': '0', '-1.0': '1'}, ]
-        self.transform = None
+        self.transform = transform
         with open(label_path) as f:
             header = f.readline().strip('\n').split(',')
             self._label_header = [
@@ -122,12 +122,15 @@ class ChexPert(Dataset):
         return self._num_image
 
     def __getitem__(self, idx):
-        image = cv2.imread(self._image_paths[idx], 0)
-        image = Image.fromarray(image)
-        if self._mode == 'train':
-            image = GetTransforms(image, type=self.cfg.use_transforms_type)
-        image = np.array(image)
-        image = transform(image, self.cfg)
+        image = Image.open(self._image_paths[idx]).convert('RGB')
+        #image = Image.fromarray(image)
+        #if self._mode == 'train':
+        #    image = GetTransforms(image, type=self.cfg.use_transforms_type)
+        # image = np.array(image)
+        # image = transform(image, self.cfg)
+        if self.transform:
+            image = self.transform(image)
+
         labels = np.array(self._labels[idx]).astype(np.float32)
 
         path = self._image_paths[idx]
