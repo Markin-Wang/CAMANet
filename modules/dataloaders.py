@@ -2,10 +2,10 @@ import torch
 import numpy as np
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from .datasets import IuxrayMultiImageDataset, MimiccxrSingleImageDataset
+from .datasets import IuxrayMultiImageDataset, MimiccxrSingleImageDataset,IuxrayMultiImageClsDataset,MimiccxrSingleImageClsDataset
 from torch.utils.data import DistributedSampler
 import torch.distributed as dist
-
+from .balanced_sampler import MultilabelBalancedRandomSampler
 
 class R2DataLoader(DataLoader):
     def __init__(self, args, tokenizer, split, shuffle):
@@ -18,13 +18,33 @@ class R2DataLoader(DataLoader):
         self.split = split
 
         if split == 'train':
-            self.transform = transforms.Compose([
+            if args.finetune:
+                self.transform = transforms.Compose([
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
+                transforms.RandomApply([
+                    transforms.RandomRotation(15, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, translate=(
+                        0.2, 0.2), interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, shear=20, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, scale=(0.8, 1.2),
+                                            interpolation=transforms.InterpolationMode.BICUBIC)
+                ]),
                 transforms.RandomHorizontalFlip(),
+                # transforms.RandomPerspective(distortion_scale=0.2),
+                # transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
                 transforms.ToTensor(),
+                # transforms.RandomErasing(scale=(0.02, 0.16), ratio=(0.3, 1.6)),
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
+            else:
+                self.transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.RandomCrop(224),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.485, 0.456, 0.406),
+                                         (0.229, 0.224, 0.225))])
         else:
             self.transform = transforms.Compose([
                 transforms.Resize((224, 224)),
@@ -32,10 +52,35 @@ class R2DataLoader(DataLoader):
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
 
-        if self.dataset_name == 'iu_xray':
+        if self.dataset_name == 'iu_xray' and not args.finetune:
             self.dataset = IuxrayMultiImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
-        elif self.dataset_name.startswith('mimic'):
-            self.dataset = MimiccxrSingleImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
+        elif self.dataset_name == 'iu_xray' and args.finetune:
+            self.dataset = IuxrayMultiImageClsDataset(self.args, self.split, transform=self.transform)
+        elif self.dataset_name=='mimic_cxr' and not args.finetune:
+            self.dataset = MimiccxrSingleImageDataset(self.args,  self.tokenizer, self.split, transform=self.transform)
+        elif self.dataset_name=='mimic_cxr_cls' and args.finetune:
+            self.dataset = MimiccxrSingleImageClsDataset(self.args, self.split, transform=self.transform)
+
+        if args.balanced and split =='train':
+            self.sampler = MultilabelBalancedRandomSampler(np.array(self.dataset._labels))
+            self.init_kwargs = {
+                'dataset': self.dataset,
+                # 'sampler': self.sampler,
+                'batch_size': self.batch_size,
+                'sampler': self.sampler,
+                'num_workers': self.num_workers,
+                'pin_memory': True
+            }
+        else:
+            self.init_kwargs = {
+                'dataset': self.dataset,
+                # 'sampler': self.sampler,
+                'batch_size': self.batch_size,
+                'shuffle':shuffle,
+                'collate_fn': self.collate_fn,
+                'num_workers': self.num_workers,
+                'pin_memory': True
+            }
 
 
         # num_tasks = dist.get_world_size()
@@ -44,15 +89,6 @@ class R2DataLoader(DataLoader):
         # self.sampler = DistributedSampler(self.dataset, num_replicas=num_tasks,
         #                                   rank=global_rank, shuffle=self.shuffle)
 
-        self.init_kwargs = {
-            'dataset': self.dataset,
-            #'sampler': self.sampler,
-            'batch_size': self.batch_size,
-            'shuffle': self.shuffle,
-            'collate_fn': self.collate_fn,
-            'num_workers': self.num_workers,
-            'pin_memory': True
-        }
         super().__init__(**self.init_kwargs)
 
     @staticmethod

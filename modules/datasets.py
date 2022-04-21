@@ -146,20 +146,29 @@ class ChexPert(Dataset):
 
 
 class IuxrayMultiImageClsDataset(Dataset):
-    def __init__(self, args, tokenizer, split, transform=None):
+    def __init__(self, args, split, transform=None):
         self.image_dir = os.path.join(args.data_dir, args.dataset_name,  'images')
         self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
-        self.label_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
-        self.transform = transform
         self.ann = json.loads(open(self.ann_path, 'r').read())
-
         self.examples = self.ann[self.split]
+        self.labels_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
+        self.labels = json.loads(open(self.labels_path, 'r').read())
+        self.transform = transform
+        self._labels = []
+        for e in self.examples:
+            img_id = e['id']
+            array = img_id.split('-')
+            modified_id = array[0] + '-' + array[1]
+            self._labels.append(self.labels[modified_id])
+        #self._labels = [self.labels[e['id']] for e in self.examples]
 
     def __getitem__(self, idx):
         example = self.examples[idx]
         image_id = example['id']
-        label = self.labels[image_id]
+        array = image_id.split('-')
+        modified_id = array[0] + '-' + array[1]
+        label = np.array(self.labels[modified_id]).astype(np.float32)
         image_path = example['image_path']
         image_1 = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
         image_2 = Image.open(os.path.join(self.image_dir, image_path[1])).convert('RGB')
@@ -173,20 +182,21 @@ class IuxrayMultiImageClsDataset(Dataset):
 
 
 class MimiccxrSingleImageClsDataset(BaseDataset):
-    def __init__(self, args, tokenizer, split, transform=None):
+    def __init__(self, args, split, transform=None):
         self.image_dir = os.path.join(args.data_dir, args.dataset_name, 'images')
         self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
-        self.label_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
-        self.transform = transform
         self.ann = json.loads(open(self.ann_path, 'r').read())
-
         self.examples = self.ann[self.split]
+        self.labels_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
+        self.labels = json.loads(open(self.labels_path, 'r').read())
+        self.transform = transform
+        self._labels = [self.labels[e['id']] for e in self.examples]
 
     def __getitem__(self, idx):
         example = self.examples[idx]
         image_id = example['id']
-        label = self.labels[image_id]
+        label = np.array(self.labels[image_id]).astype(np.float32)
         image_path = example['image_path']
         image = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
         if self.transform is not None:

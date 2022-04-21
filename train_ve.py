@@ -270,13 +270,19 @@ def train(args, config, model):
                 ChexPert(cfg.dev_csv, cfg, mode='dev',transform=test_transform),
                 batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=False, shuffle=False)
-            test_dataloader = val_loader
+            test_loader = None
     else:
         tokenizer = Tokenizer(args)
         train_loader = R2DataLoader(args, tokenizer, split='train', shuffle=True)
         val_loader = R2DataLoader(args, tokenizer, split='val', shuffle=False)
         test_loader = R2DataLoader(args, tokenizer, split='test', shuffle=False)
 
+    if args.finetune:
+        state_dict = torch.load(args.pretrained)['model']
+        logger.info(state_dict.keys())
+        state_dict.pop('head.weight')
+        state_dict.pop('head.bias')
+        model.load_state_dict(state_dict,strict=False)
 
     # Prepare optimizer and scheduler
     # optimizer = torch.optim.SGD(model.parameters(),
@@ -317,9 +323,9 @@ def train(args, config, model):
     losses = AverageMeter()
     global_step, max_accuracy = 0, 0.0
     criterion = torch.nn.BCEWithLogitsLoss()
-    max_auc = 0
+    max_auc, max_auc_test = 0, 0
     start_time = time.time()
-    best_epoch = 0
+    best_epoch, best_epoch_test = 0, 0
     for epoch in range(args.epochs):
         #data_loader_train.sampler.set_epoch(epoch)
 
@@ -329,12 +335,23 @@ def train(args, config, model):
         auc_score = auc.mean()
         writer.add_scalar('data/val_loss', loss)
         writer.add_scalar('data/val_acc', acc1)
-        writer.add_scalar('data/auc_score', auc_score)
-        writer.add_text('data/auc', str(auc))
+        writer.add_scalar('data/val_auc_score', auc_score)
+        writer.add_text('data/val_auc', str(auc))
         if  auc_score > max_auc:
             max_auc = auc_score
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
+        if test_loader:
+            acc1_test, auc_test, loss_test = validate(config, test_loader, model)
+            auc_score_test = auc_test.mean()
+            writer.add_scalar('data/test_loss', loss_test)
+            writer.add_scalar('data/test_acc', acc1_test)
+            writer.add_scalar('data/test_auc_score', auc_score_test)
+            writer.add_text('data/test_auc', str(auc_test))
+            if auc_score_test > max_auc_test:
+                max_auc_test = auc_score_test
+                best_epoch_test = epoch
+                #save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
         logger.info('Auc for all classes: '+', '.join([str(round(x.item(),5)) for x in auc]))
         logger.info(f' * Auc@1 {auc.mean():.3f}')
@@ -378,6 +395,7 @@ def main():
 
     # Set seed
     set_seed(args)
+    torch.backends.cudnn.benchmark = True
 
     # Model & Tokenizer Setup
     args, model = setup(args, config, logger)

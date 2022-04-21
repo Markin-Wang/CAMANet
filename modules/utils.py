@@ -109,7 +109,9 @@ def parse_args():
                         help='the path to the directory containing the data.')
 
     # Data loader settings
-    parser.add_argument('--dataset_name', type=str, default='iu_xray', choices=['iu_xray', 'mimic_cxr', 'chexpert'], help='the dataset to be used.')
+    parser.add_argument('--dataset_name', type=str, default='iu_xray',
+                        choices=['iu_xray', 'mimic_cxr', 'chexpert', 'iu_xray_cls', 'mimic_cxr_cls'],
+                        help='the dataset to be used.')
     parser.add_argument('--max_seq_length', type=int, default=60, help='the maximum sequence length of the reports.')
     parser.add_argument('--threshold', type=int, default=3, help='the cut off frequency for the words.')
     parser.add_argument('--num_workers', type=int, default=4, help='the number of workers for dataloader.')
@@ -176,10 +178,13 @@ def parse_args():
     # Others
     parser.add_argument('--seed', type=int, default=9233, help='.')
     parser.add_argument('--fp16', type=bool, default=False, help='whether to use fp16 training')
+    parser.add_argument('--balanced', type=bool, default=True, help='whether to use balanced sampler')
+    parser.add_argument('--finetune', type=bool, default=False, help='whether to finetune model')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)
     return args, config
+
 
 def load_pretrained(config, model, logger):
     logger.info(f"==============> Loading weight {config.MODEL.PRETRAINED} for fine-tuning......")

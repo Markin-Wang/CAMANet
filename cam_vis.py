@@ -36,7 +36,7 @@ from swintrans.utils import load_checkpoint, load_pretrained, save_checkpoint, g
 import datetime
 import torch.nn.functional as F
 import time
-from torchcam.methods import SmoothGradCAMpp, XGradCAM
+from torchcam.methods import SmoothGradCAMpp, XGradCAM, CAM
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def setup(args, config, logger=None):
     # Prepare model
 
     if args.dataset_name == 'chexpert':
-        num_classes = 5
+        num_classes = 14
     else:
         num_classes = 14
 
@@ -231,11 +231,11 @@ def train(args, config, model):
     start_time = time.time()
     best_epoch = 0
     cam_vis = True
-    checkpoint = torch.load('output/swin_tiny_patch4_window7_224/default/ckpt_epoch_9cpt_dense121_1e-4_5x_am_wd5e-5_wu0_1e-4_dc50_08_sd9223_ep5_bs16.pth')
+    checkpoint = torch.load('pretrained_models/cps_finetune/ckpt_epoch_2cpt_densenet121_1e-4_5x_am_wd5e-5_wu0_1e-4_dc50_08_sd9223_ep10_bs64_nc14.pth')
     model.load_state_dict(checkpoint['model'])
     model.eval()
     cam = []
-    cam_extractor = XGradCAM(model)
+    cam_extractor = SmoothGradCAMpp(model)
     to_img = transforms.ToPILImage()
     imgs = []
     #with torch.no_grad():
@@ -247,7 +247,7 @@ def train(args, config, model):
         for image,path, tar in zip(images, paths, target):
             cur_cam = []
             out = model(image.unsqueeze(0))
-            labels = torch.where(F.sigmoid(out.squeeze(0))>0.5)[0]
+            labels = torch.where(torch.sigmoid(out.squeeze(0))>0.5)[0]
             if len(labels)>0:
                 for idx in labels:
                     #print(111111111111,idx)
@@ -291,25 +291,25 @@ def train(args, config, model):
         #         f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
         #         # f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
         #         f'Mem {memory_used:.0f}MB')
-        if idx>10:
+        if idx>15:
             break
     mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32)
     std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32)
     denorm = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
     image = imgs[3]
     map1 = cam[3][0]['map'][0].squeeze(0)
-    map2 = cam[3][1]['map'][0].squeeze(0)
+    # map2 = cam[3][1]['map'][0].squeeze(0)
     image = denorm(image)
     result1 = overlay_mask(transforms.functional.to_pil_image(image), transforms.functional.to_pil_image(map1, mode='F'), alpha=0.5)
-    result2 = overlay_mask(transforms.functional.to_pil_image(image), transforms.functional.to_pil_image(map2, mode='F'),
-                          alpha=0.5)
+    # result2 = overlay_mask(transforms.functional.to_pil_image(image), transforms.functional.to_pil_image(map2, mode='F'),
+    #                       alpha=0.5)
     fig = plt.figure(figsize=(16,8))
     fig.add_subplot(1,2,1)
     plt.imshow(result1)
     plt.tight_layout()
-    fig.add_subplot(1, 2, 2)
-    plt.imshow(result2)
-    plt.tight_layout()
+    # fig.add_subplot(1, 2, 2)
+    # plt.imshow(result2)
+    # plt.tight_layout()
     plt.show()
     torch.save(imgs, 'chexpert_images.pth')
     torch.save(cam, 'chexpert_maps.pth')

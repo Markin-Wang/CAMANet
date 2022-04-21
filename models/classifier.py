@@ -49,7 +49,10 @@ class Classifier(nn.Module):
             self.num_features = model.classifier.in_features
             self.model = model.features
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)
-        self.head = Linear(self.num_features, n_classes)
+        if args.dataset_name=='iu_xray':
+            self.head = Linear(2 * self.num_features, n_classes)
+        else:
+            self.head = Linear(self.num_features, n_classes)
         trunc_normal_(self.head.weight, std= 1/math.sqrt(self.num_features * n_classes))
         nn.init.constant_(self.head.bias, 0)
 
@@ -79,8 +82,6 @@ class Classifier(nn.Module):
             elif self.ve_name.startswith('densenet'):
                 patch_feats_1 = F.relu(self.model(images[:, 0]), inplace=True)
                 patch_feats_2 = F.relu(self.model(images[:, 1]), inplace=True)
-                print(111, patch_feats_1.shape)
-                print('222', self.avg_fnt(patch_feats_1).shape)
                 avg_feats_1 = F.adaptive_avg_pool2d(patch_feats_1, (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
                 avg_feats_2 = F.adaptive_avg_pool2d(patch_feats_2, (1, 1)).squeeze().reshape(-1, patch_feats_2.size(1))
                 batch_size, feat_size, _, _ = patch_feats_1.shape
