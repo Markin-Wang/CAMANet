@@ -100,22 +100,22 @@ class ChexPert(Dataset):
                                 value) == '1' and \
                                 self.cfg.enhance_index.count(index) > 0:
                             flg_enhance = True
-                    # else:
-                    #     labels.append(self.dict[1].get(value))
-                    #     if self.dict[1].get(
-                    #             value) == '1' and \
-                    #             self.cfg.enhance_index.count(index) > 0:
-                    #         flg_enhance = True
+                    else:
+                        labels.append(self.dict[1].get(value))
+                        if self.dict[1].get(
+                                value) == '1' and \
+                                self.cfg.enhance_index.count(index) > 0:
+                            flg_enhance = True
                 # labels = ([self.dict.get(n, n) for n in fields[5:]])
                 labels = list(map(int, labels))
                 image_path = os.path.join('./data', image_path)
                 self._image_paths.append(image_path)
                 assert os.path.exists(image_path), image_path
                 self._labels.append(labels)
-                if flg_enhance and self._mode == 'train':
-                    for i in range(self.cfg.enhance_times):
-                        self._image_paths.append(image_path)
-                        self._labels.append(labels)
+                # if flg_enhance and self._mode == 'train':
+                #     for i in range(self.cfg.enhance_times):
+                #         self._image_paths.append(image_path)
+                #         self._labels.append(labels)
         self._num_image = len(self._image_paths)
 
     def __len__(self):
@@ -147,10 +147,10 @@ class ChexPert(Dataset):
 
 class IuxrayMultiImageClsDataset(Dataset):
     def __init__(self, args, tokenizer, split, transform=None):
-        self.image_dir = os.path.join(args.data_dir, 'images')
-        self.ann_path = os.path.join(args.data_dir, 'annotation.json')
+        self.image_dir = os.path.join(args.data_dir, args.dataset_name,  'images')
+        self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
-        self.label_path = os.path.join(args.data_dir, 'labels.json')
+        self.label_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
         self.transform = transform
         self.ann = json.loads(open(self.ann_path, 'r').read())
 
@@ -174,10 +174,10 @@ class IuxrayMultiImageClsDataset(Dataset):
 
 class MimiccxrSingleImageClsDataset(BaseDataset):
     def __init__(self, args, tokenizer, split, transform=None):
-        self.image_dir = os.path.join(args.data_dir, 'images')
-        self.ann_path = os.path.join(args.data_dir, 'annotation.json')
+        self.image_dir = os.path.join(args.data_dir, args.dataset_name, 'images')
+        self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
-        self.label_path = os.path.join(args.data_dir, 'labels.json')
+        self.label_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
         self.transform = transform
         self.ann = json.loads(open(self.ann_path, 'r').read())
 

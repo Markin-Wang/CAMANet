@@ -15,6 +15,7 @@ import json
 from sklearn import metrics
 from torchvision import transforms
 import PIL
+from modules.balanced_sampler import MultilabelBalancedRandomSampler
 
 import torch
 import torch.distributed as dist
@@ -52,7 +53,7 @@ def setup(args, config, logger=None):
     # Prepare model
 
     if args.dataset_name == 'chexpert':
-        num_classes = 5
+        num_classes = 14
     else:
         num_classes = 14
 
@@ -138,7 +139,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
-        break
     writer.add_scalar('data/train_loss', loss_meter.avg)
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
@@ -150,11 +150,11 @@ def calculate_metricx(preds, targets):
         auclist.append(metrics.auc(fpr,tpr))
     pred_labels = preds > 0.5
     confusion_matrix = metrics.multilabel_confusion_matrix(y_true = targets, y_pred = pred_labels)
-    return torch.from_numpy(np.array(auclist)), confusion_matrix
+    return np.array([x for x in auclist if not np.isnan(x)]), confusion_matrix
 
 @torch.no_grad()
 def validate(config, data_loader, model):
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.BCEWithLogitsLoss()
     model.eval()
 
     batch_time = AverageMeter()
@@ -174,8 +174,9 @@ def validate(config, data_loader, model):
         output = model(images)
 
         # measure accuracy and record loss
-        loss = criterion(output, target)
+
         logits = F.torch.sigmoid(output)
+        loss = criterion(logits, target)
         if idx == 0:
             predlist = logits.cpu().numpy()
             true_list = target.cpu().numpy()
@@ -241,12 +242,12 @@ def train(args, config, model):
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
                 transforms.RandomApply([
-                    transforms.RandomRotation(15, resample=PIL.Image.BICUBIC),
+                    transforms.RandomRotation(15, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, translate=(
-                        0.2, 0.2), resample=PIL.Image.BICUBIC),
-                    transforms.RandomAffine(0, shear=20, resample=PIL.Image.BICUBIC),
+                        0.2, 0.2), interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, shear=20, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, scale=(0.8, 1.2),
-                                            resample=PIL.Image.BICUBIC)
+                                            interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
                 transforms.RandomHorizontalFlip(),
                 #transforms.RandomPerspective(distortion_scale=0.2),
@@ -260,10 +261,11 @@ def train(args, config, model):
                 transforms.ToTensor(),
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
+            train_set = ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform)
             train_loader = DataLoader(
-                ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform),
+                train_set,
                 batch_size=args.batch_size, num_workers=args.num_workers,
-                drop_last=True, shuffle=True)
+                drop_last=True, sampler=MultilabelBalancedRandomSampler(np.array(train_set._labels)))
             val_loader = DataLoader(
                 ChexPert(cfg.dev_csv, cfg, mode='dev',transform=test_transform),
                 batch_size=args.batch_size, num_workers=args.num_workers,
@@ -349,6 +351,7 @@ def train(args, config, model):
         writer.close()
     #logger.info("Best Accuracy: \t%f" % best_acc)
     logger.info("End Training!")
+    logger.info(f"exp name:{args.exp_name}")
 
 
 def main():
