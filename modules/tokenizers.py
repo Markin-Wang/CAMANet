@@ -1,11 +1,12 @@
 import json
 import re
 from collections import Counter
+import os
 
 
 class Tokenizer(object):
     def __init__(self, args):
-        self.ann_path = args.ann_path
+        self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.threshold = args.threshold
         self.dataset_name = args.dataset_name
         if self.dataset_name == 'iu_xray':

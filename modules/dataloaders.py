@@ -8,7 +8,7 @@ import torch.distributed as dist
 from .balanced_sampler import MultilabelBalancedRandomSampler
 
 class R2DataLoader(DataLoader):
-    def __init__(self, args, tokenizer, split, shuffle):
+    def __init__(self, args, tokenizer, split, shuffle, vis = False):
         self.args = args
         self.dataset_name = args.dataset_name
         self.batch_size = args.batch_size
@@ -16,9 +16,10 @@ class R2DataLoader(DataLoader):
         self.num_workers = args.num_workers
         self.tokenizer = tokenizer
         self.split = split
+        self.vis = vis
 
         if split == 'train':
-            if args.finetune:
+            if args.finetune and not self.vis:
                 self.transform = transforms.Compose([
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
@@ -55,22 +56,35 @@ class R2DataLoader(DataLoader):
         if self.dataset_name == 'iu_xray' and not args.finetune:
             self.dataset = IuxrayMultiImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
         elif self.dataset_name == 'iu_xray' and args.finetune:
-            self.dataset = IuxrayMultiImageClsDataset(self.args, self.split, transform=self.transform)
-        elif self.dataset_name=='mimic_cxr' and not args.finetune:
+            self.dataset = IuxrayMultiImageClsDataset(self.args, self.split, transform=self.transform, vis = self.vis)
+        elif self.dataset_name.startswith('mimic') and not args.cls:
             self.dataset = MimiccxrSingleImageDataset(self.args,  self.tokenizer, self.split, transform=self.transform)
-        elif self.dataset_name=='mimic_cxr_cls' and args.finetune:
-            self.dataset = MimiccxrSingleImageClsDataset(self.args, self.split, transform=self.transform)
+        elif self.dataset_name.startswith('mimic') and args.cls:
+            self.dataset = MimiccxrSingleImageClsDataset(self.args, self.split, transform=self.transform, vis = self.vis)
 
-        if args.balanced and split =='train':
-            self.sampler = MultilabelBalancedRandomSampler(np.array(self.dataset._labels))
-            self.init_kwargs = {
-                'dataset': self.dataset,
-                # 'sampler': self.sampler,
-                'batch_size': self.batch_size,
-                'sampler': self.sampler,
-                'num_workers': self.num_workers,
-                'pin_memory': True
-            }
+        if args.cls:
+            if split == 'train' and not self.vis:
+                self.sampler = MultilabelBalancedRandomSampler(np.array(self.dataset._labels))
+                self.init_kwargs = {
+                    'dataset': self.dataset,
+                    'batch_size': self.batch_size,
+                    'sampler': self.sampler,
+                    'num_workers': self.num_workers,
+                    'pin_memory': True,
+                    'drop_last': True
+                }
+            else:
+                self.init_kwargs = {
+                    'dataset': self.dataset,
+                    # 'sampler': self.sampler,
+                    'batch_size': self.batch_size,
+                    'shuffle': shuffle,
+                    #'collate_fn': self.collate_fn,
+                    'num_workers': self.num_workers,
+                    'pin_memory': True,
+                    'drop_last': False
+                }
+
         else:
             self.init_kwargs = {
                 'dataset': self.dataset,
@@ -79,7 +93,8 @@ class R2DataLoader(DataLoader):
                 'shuffle':shuffle,
                 'collate_fn': self.collate_fn,
                 'num_workers': self.num_workers,
-                'pin_memory': True
+                'pin_memory': True,
+                'drop_last': False
             }
 
 

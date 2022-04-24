@@ -50,14 +50,14 @@ class Classifier(nn.Module):
             self.model = model.features
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)
         if args.dataset_name=='iu_xray':
-            self.head = Linear(2 * self.num_features, n_classes)
+            self.head = Linear(self.num_features, n_classes)
         else:
             self.head = Linear(self.num_features, n_classes)
         trunc_normal_(self.head.weight, std= 1/math.sqrt(self.num_features * n_classes))
         nn.init.constant_(self.head.bias, 0)
 
 
-    def forward(self, images, labels = None):
+    def forward(self, images, labels = None, mode ='train'):
         if self.dataset_name == 'iu_xray':
             if self.ve_name.lower().startswith('vit'):
                 feats_1, attn_weights_1 = self.model.forward_patch_features(images[:, 0])
@@ -82,13 +82,17 @@ class Classifier(nn.Module):
             elif self.ve_name.startswith('densenet'):
                 patch_feats_1 = F.relu(self.model(images[:, 0]), inplace=True)
                 patch_feats_2 = F.relu(self.model(images[:, 1]), inplace=True)
-                avg_feats_1 = F.adaptive_avg_pool2d(patch_feats_1, (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
-                avg_feats_2 = F.adaptive_avg_pool2d(patch_feats_2, (1, 1)).squeeze().reshape(-1, patch_feats_2.size(1))
-                batch_size, feat_size, _, _ = patch_feats_1.shape
-                patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-                patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-                patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
-                avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                #print(1111, torch.cat((patch_feats_1, patch_feats_2),dim=3).shape)
+                # avg_feats_1 = F.adaptive_avg_pool2d(patch_feats_1, (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
+                # avg_feats_2 = F.adaptive_avg_pool2d(patch_feats_2, (1, 1)).squeeze().reshape(-1, patch_feats_2.size(1))
+
+                #avg_feats = (avg_feats_1 + avg_feats_2)/2
+                avg_feats = F.adaptive_avg_pool2d(torch.cat((patch_feats_1, patch_feats_2), dim=3), (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
+                # batch_size, feat_size, _, _ = patch_feats_1.shape
+                # patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
+                # patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
+                # patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
+                # avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
 
         else:
             if self.ve_name.lower().startswith('vit'):
@@ -107,7 +111,6 @@ class Classifier(nn.Module):
                 avg_feats = F.adaptive_avg_pool2d(patch_feats, (1, 1)).squeeze().reshape(-1, patch_feats.size(1))
                 batch_size, feat_size, _, _ = patch_feats.shape
                 patch_feats = patch_feats.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-
         logits = self.head(avg_feats)
         if labels is not None:
             loss_fct = CrossEntropyLoss()

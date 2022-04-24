@@ -30,13 +30,14 @@ from modules.utils import parse_args
 from models.classifier import Classifier
 from easydict import EasyDict as edict
 from timm.utils import accuracy, AverageMeter
-from swintrans.utils import load_checkpoint, load_pretrained, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
+from swintrans.utils import load_checkpoint, load_pretrained, save_checkpoint, get_grad_norm, auto_resume_helper, \
+    reduce_tensor
 import datetime
 import torch.nn.functional as F
 import time
 
-
 logger = logging.getLogger(__name__)
+
 
 def simple_accuracy(preds, labels):
     return (preds == labels).mean()
@@ -57,7 +58,7 @@ def setup(args, config, logger=None):
     else:
         num_classes = 14
 
-    model = Classifier(args, logger = logger, config = config, n_classes=num_classes)
+    model = Classifier(args, logger=logger, config=config, n_classes=num_classes)
     model.to(args.device)
     num_params = count_parameters(model)
 
@@ -70,7 +71,7 @@ def setup(args, config, logger=None):
 
 def count_parameters(model):
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return params/1000000
+    return params / 1000000
 
 
 def set_seed(args):
@@ -80,7 +81,8 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, writer = None):
+
+def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, writer=None):
     model.train()
     optimizer.zero_grad()
 
@@ -143,14 +145,16 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
+
 def calculate_metricx(preds, targets):
     auclist = []
     for i in range(preds[0].shape[-1]):
-        fpr, tpr, thresholds = metrics.roc_curve(targets[:, i], preds[:,i], pos_label=1)
-        auclist.append(metrics.auc(fpr,tpr))
+        fpr, tpr, thresholds = metrics.roc_curve(targets[:, i], preds[:, i], pos_label=1)
+        auclist.append(metrics.auc(fpr, tpr))
     pred_labels = preds > 0.5
-    confusion_matrix = metrics.multilabel_confusion_matrix(y_true = targets, y_pred = pred_labels)
+    confusion_matrix = metrics.multilabel_confusion_matrix(y_true=targets, y_pred=pred_labels)
     return np.array([x for x in auclist if not np.isnan(x)]), confusion_matrix
+
 
 @torch.no_grad()
 def validate(config, data_loader, model):
@@ -184,7 +188,7 @@ def validate(config, data_loader, model):
             predlist = np.append(predlist, logits.cpu().numpy(), axis=0)
             true_list = np.append(true_list, target.cpu().numpy(), axis=0)
         pred_labels = logits.ge(0.5)
-        acc = (target == pred_labels).float().sum() / (pred_labels.shape[-1]*pred_labels.shape[-2])
+        acc = (target == pred_labels).float().sum() / (pred_labels.shape[-1] * pred_labels.shape[-2])
         # loss = reduce_tensor(loss)
         # acc = reduce_tensor(acc)
         loss_meter.update(loss.item(), target.size(0))
@@ -201,7 +205,7 @@ def validate(config, data_loader, model):
                 f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                 f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
-                #f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
+                # f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
     auc, confusion_matrix = calculate_metricx(predlist, true_list)
     return acc1_meter.avg, auc, loss_meter.avg
@@ -227,13 +231,12 @@ def throughput(data_loader, model, logger):
         return
 
 
-
 def train(args, config, model):
     """ Train the model """
     os.makedirs(args.save_dir, exist_ok=True)
     writer = SummaryWriter(log_dir=os.path.join("logs", args.exp_name))
 
-    #args.batch_size = args.batch_size // args.gradient_accumulation_steps
+    # args.batch_size = args.batch_size // args.gradient_accumulation_steps
 
     if args.dataset_name == 'chexpert':
         with open('./example.json') as f:
@@ -250,10 +253,10 @@ def train(args, config, model):
                                             interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
                 transforms.RandomHorizontalFlip(),
-                #transforms.RandomPerspective(distortion_scale=0.2),
-                #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
+                # transforms.RandomPerspective(distortion_scale=0.2),
+                # transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
                 transforms.ToTensor(),
-                #transforms.RandomErasing(scale=(0.02, 0.16), ratio=(0.3, 1.6)),
+                # transforms.RandomErasing(scale=(0.02, 0.16), ratio=(0.3, 1.6)),
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
             test_transform = transforms.Compose([
@@ -267,7 +270,7 @@ def train(args, config, model):
                 batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=True, sampler=MultilabelBalancedRandomSampler(np.array(train_set._labels)))
             val_loader = DataLoader(
-                ChexPert(cfg.dev_csv, cfg, mode='dev',transform=test_transform),
+                ChexPert(cfg.dev_csv, cfg, mode='dev', transform=test_transform),
                 batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=False, shuffle=False)
             test_loader = None
@@ -282,7 +285,7 @@ def train(args, config, model):
         logger.info(state_dict.keys())
         state_dict.pop('head.weight')
         state_dict.pop('head.bias')
-        model.load_state_dict(state_dict,strict=False)
+        model.load_state_dict(state_dict, strict=False)
 
     # Prepare optimizer and scheduler
     # optimizer = torch.optim.SGD(model.parameters(),
@@ -327,7 +330,7 @@ def train(args, config, model):
     start_time = time.time()
     best_epoch, best_epoch_test = 0, 0
     for epoch in range(args.epochs):
-        #data_loader_train.sampler.set_epoch(epoch)
+        # data_loader_train.sampler.set_epoch(epoch)
 
         train_one_epoch(config, model, criterion, train_loader, optimizer, epoch, None, scheduler, writer)
 
@@ -337,7 +340,7 @@ def train(args, config, model):
         writer.add_scalar('data/val_acc', acc1)
         writer.add_scalar('data/val_auc_score', auc_score)
         writer.add_text('data/val_auc', str(auc))
-        if  auc_score > max_auc:
+        if auc_score > max_auc:
             max_auc = auc_score
             best_epoch = epoch
             save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
@@ -351,9 +354,9 @@ def train(args, config, model):
             if auc_score_test > max_auc_test:
                 max_auc_test = auc_score_test
                 best_epoch_test = epoch
-                #save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
+                # save_checkpoint(config, args, epoch, model, max_auc, optimizer, scheduler, logger)
 
-        logger.info('Auc for all classes: '+', '.join([str(round(x.item(),5)) for x in auc]))
+        logger.info('Auc for all classes: ' + ', '.join([str(round(x.item(), 5)) for x in auc]))
         logger.info(f' * Auc@1 {auc.mean():.3f}')
         logger.info(f' * Acc@1 {acc1:.3f} ')
         logger.info(f'Best model in epoch: {best_epoch}')
@@ -366,7 +369,7 @@ def train(args, config, model):
 
     if args.local_rank in [-1, 0]:
         writer.close()
-    #logger.info("Best Accuracy: \t%f" % best_acc)
+    # logger.info("Best Accuracy: \t%f" % best_acc)
     logger.info("End Training!")
     logger.info(f"exp name:{args.exp_name}")
 

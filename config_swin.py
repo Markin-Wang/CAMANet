@@ -213,8 +213,8 @@ def update_config(config, args):
     # merge from specific arguments
     if args.batch_size:
         config.DATA.BATCH_SIZE = args.batch_size
-    if args.data_path:
-        config.DATA.DATA_PATH = args.data_path
+    if args.data_dir:
+        config.DATA.DATA_PATH = args.data_dir
     if args.zip:
         config.DATA.ZIP_MODE = True
     if args.cache_mode:

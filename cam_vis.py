@@ -179,17 +179,17 @@ def train(args, config, model):
         with open('./example.json') as f:
             cfg = edict(json.load(f))
             train_transform = transforms.Compose([
-                transforms.Resize(256),
-                transforms.RandomCrop(224),
-                transforms.RandomApply([
-                    transforms.RandomRotation(15, resample=PIL.Image.BICUBIC),
-                    transforms.RandomAffine(0, translate=(
-                        0.2, 0.2), resample=PIL.Image.BICUBIC),
-                    transforms.RandomAffine(0, shear=20, resample=PIL.Image.BICUBIC),
-                    transforms.RandomAffine(0, scale=(0.8, 1.2),
-                                            resample=PIL.Image.BICUBIC)
-                ]),
-                transforms.RandomHorizontalFlip(),
+                transforms.Resize((224, 224)),
+                # transforms.RandomCrop(224),
+                # transforms.RandomApply([
+                #     transforms.RandomRotation(15, resample=PIL.Image.BICUBIC),
+                #     transforms.RandomAffine(0, translate=(
+                #         0.2, 0.2), resample=PIL.Image.BICUBIC),
+                #     transforms.RandomAffine(0, shear=20, resample=PIL.Image.BICUBIC),
+                #     transforms.RandomAffine(0, scale=(0.8, 1.2),
+                #                             resample=PIL.Image.BICUBIC)
+                # ]),
+                # transforms.RandomHorizontalFlip(),
                 #transforms.RandomPerspective(distortion_scale=0.2),
                 #transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
                 transforms.ToTensor(),
@@ -202,7 +202,7 @@ def train(args, config, model):
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
             train_loader = DataLoader(
-                ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform),
+                ChexPert(cfg.train_csv, cfg, mode='heatmap', transform=train_transform),
                 batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=True, shuffle=True)
             val_loader = DataLoader(
@@ -212,9 +212,9 @@ def train(args, config, model):
             test_loader = val_loader
     else:
         tokenizer = Tokenizer(args)
-        train_loader = R2DataLoader(args, tokenizer, split='train', shuffle=True)
-        val_loader = R2DataLoader(args, tokenizer, split='val', shuffle=False)
-        test_loader = R2DataLoader(args, tokenizer, split='test', shuffle=False)
+        train_loader = R2DataLoader(args, tokenizer, split='train', shuffle=True, vis = True)
+        val_loader = R2DataLoader(args, tokenizer, split='val', shuffle=False, vis = True)
+        test_loader = R2DataLoader(args, tokenizer, split='test', shuffle=False, vis=True)
 
 
     logger.info("  Instantaneous batch size per GPU = %d", args.batch_size)
@@ -231,30 +231,35 @@ def train(args, config, model):
     start_time = time.time()
     best_epoch = 0
     cam_vis = True
-    checkpoint = torch.load('pretrained_models/cps_finetune/ckpt_epoch_2cpt_densenet121_1e-4_5x_am_wd5e-5_wu0_1e-4_dc50_08_sd9223_ep10_bs64_nc14.pth')
+    checkpoint = torch.load('pretrained_models/iu_finetune/iu_dense121_1e-5_50x_am_wd5e-5_wu0_1e-4_dc50_08_sd9223_ep5_bs32_n14_ft.pth')
     model.load_state_dict(checkpoint['model'])
     model.eval()
     cam = []
-    cam_extractor = SmoothGradCAMpp(model)
+    cam_extractor = CAM(model)
     to_img = transforms.ToPILImage()
     imgs = []
     #with torch.no_grad():
-    for idx, (images, paths, target) in enumerate(test_loader):
+    count = 0
+    for idx, (images, paths, target) in enumerate(train_loader):
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
+        print(idx)
 
         # compute output
         for image,path, tar in zip(images, paths, target):
             cur_cam = []
-            out = model(image.unsqueeze(0))
+            out = model(image[0].unsqueeze(0))
             labels = torch.where(torch.sigmoid(out.squeeze(0))>0.5)[0]
             if len(labels)>0:
-                for idx in labels:
+                count+=1
+                for ids in labels:
                     #print(111111111111,idx)
-                    activation_map = cam_extractor(idx.item(), out)
-                    cur_cam.append({'path':path, 'map':activation_map, 'label':idx.item()})
-                imgs.append(image.detach().cpu())
+                    activation_map = cam_extractor(ids.item(), out)
+                    cur_cam.append({'path':path, 'map':activation_map, 'label':ids.item()})
+                imgs.append({'image':image.detach().cpu(),'gt':tar.detach().cpu().numpy()})
                 cam.append(cur_cam)
+        if idx > 20:
+            break
 
         # output = model(images)
         # #output = torch.sigmoid(output)
@@ -291,14 +296,16 @@ def train(args, config, model):
         #         f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
         #         # f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
         #         f'Mem {memory_used:.0f}MB')
-        if idx>15:
-            break
+
     mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32)
     std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32)
     denorm = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-    image = imgs[3]
+    image = imgs[0]['image'][0]
+
     map1 = cam[3][0]['map'][0].squeeze(0)
+    print(33333, map1.shape, count)
     # map2 = cam[3][1]['map'][0].squeeze(0)
+
     image = denorm(image)
     result1 = overlay_mask(transforms.functional.to_pil_image(image), transforms.functional.to_pil_image(map1, mode='F'), alpha=0.5)
     # result2 = overlay_mask(transforms.functional.to_pil_image(image), transforms.functional.to_pil_image(map2, mode='F'),

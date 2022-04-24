@@ -73,7 +73,7 @@ def parse_args():
     # swin trans
     parser.add_argument('--exp_name', type=str, default='m2_transformer_iu_xray')
 
-    parser.add_argument('--data_path', type=str, help='path to dataset')
+    parser.add_argument('--label_path', type=str, help='path to label')
     parser.add_argument('--zip', action='store_true', help='use zipped dataset instead of folder dataset')
     parser.add_argument('--cache-mode', type=str, default='no', choices=['no', 'full', 'part'],
                         help='no: no cache, '
@@ -103,14 +103,12 @@ def parse_args():
 
 
     # Data input settings
-    parser.add_argument('--image_dir', type=str, default='data/iu_xray/images/', help='the path to the directory containing the data.')
-    parser.add_argument('--ann_path', type=str, default='data/iu_xray/annotation.json', help='the path to the directory containing the data.')
     parser.add_argument('--data_dir', type=str, default='data',
                         help='the path to the directory containing the data.')
 
     # Data loader settings
     parser.add_argument('--dataset_name', type=str, default='iu_xray',
-                        choices=['iu_xray', 'mimic_cxr', 'chexpert', 'iu_xray_cls', 'mimic_cxr_cls'],
+                        choices=['iu_xray', 'mimic_cxr', 'chexpert', 'iu_xray_cls', 'mimic_cxr_cls', 'mimic_cxr_dsr2'],
                         help='the dataset to be used.')
     parser.add_argument('--max_seq_length', type=int, default=60, help='the maximum sequence length of the reports.')
     parser.add_argument('--threshold', type=int, default=3, help='the cut off frequency for the words.')
@@ -180,6 +178,7 @@ def parse_args():
     parser.add_argument('--fp16', type=bool, default=False, help='whether to use fp16 training')
     parser.add_argument('--balanced', type=bool, default=True, help='whether to use balanced sampler')
     parser.add_argument('--finetune', type=bool, default=False, help='whether to finetune model')
+    parser.add_argument('--cls', type=bool, default=False, help='whether to perform classification')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

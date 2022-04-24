@@ -13,12 +13,12 @@ import numpy as np
 
 class BaseDataset(Dataset):
     def __init__(self, args, tokenizer, split, transform=None):
-        self.image_dir = args.image_dir
-        self.ann_path = args.ann_path
         self.max_seq_length = args.max_seq_length
         self.split = split
         self.tokenizer = tokenizer
         self.transform = transform
+        self.image_dir = os.path.join(args.data_dir, args.dataset_name,  'images')
+        self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.ann = json.loads(open(self.ann_path, 'r').read())
 
         self.examples = self.ann[self.split]
@@ -146,13 +146,13 @@ class ChexPert(Dataset):
 
 
 class IuxrayMultiImageClsDataset(Dataset):
-    def __init__(self, args, split, transform=None):
+    def __init__(self, args, split, transform=None, vis =False):
         self.image_dir = os.path.join(args.data_dir, args.dataset_name,  'images')
         self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
         self.ann = json.loads(open(self.ann_path, 'r').read())
         self.examples = self.ann[self.split]
-        self.labels_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
+        self.labels_path = os.path.join(args.data_dir, args.dataset_name, args.label_path)
         self.labels = json.loads(open(self.labels_path, 'r').read())
         self.transform = transform
         self._labels = []
@@ -161,6 +161,7 @@ class IuxrayMultiImageClsDataset(Dataset):
             array = img_id.split('-')
             modified_id = array[0] + '-' + array[1]
             self._labels.append(self.labels[modified_id])
+        self.vis = vis
         #self._labels = [self.labels[e['id']] for e in self.examples]
 
     def __getitem__(self, idx):
@@ -178,17 +179,23 @@ class IuxrayMultiImageClsDataset(Dataset):
         image = torch.stack((image_1, image_2), 0)
         #sample = (image_id, image, report_ids, report_masks, seq_length)
         #sample = (image, label)
-        return image, label
+        if self.vis:
+            return image, image_path, label
+        else:
+            return image, label
+
+    def __len__(self):
+        return len(self.examples)
 
 
 class MimiccxrSingleImageClsDataset(BaseDataset):
-    def __init__(self, args, split, transform=None):
+    def __init__(self, args, split, transform=None, vis = False):
         self.image_dir = os.path.join(args.data_dir, args.dataset_name, 'images')
         self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.split = split
         self.ann = json.loads(open(self.ann_path, 'r').read())
         self.examples = self.ann[self.split]
-        self.labels_path = os.path.join(args.data_dir, args.dataset_name, 'labels.json')
+        self.labels_path = os.path.join(args.data_dir, args.dataset_name, args.label_path)
         self.labels = json.loads(open(self.labels_path, 'r').read())
         self.transform = transform
         self._labels = [self.labels[e['id']] for e in self.examples]
@@ -206,6 +213,9 @@ class MimiccxrSingleImageClsDataset(BaseDataset):
         # seq_length = len(report_ids)
         #sample = (image_id, image, report_ids, report_masks, seq_length)
         return image, label
+
+    def __len__(self):
+        return len(self.examples)
 
 #
 # class CheXpertDataSet(Dataset):
