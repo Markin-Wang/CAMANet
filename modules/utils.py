@@ -163,6 +163,7 @@ def parse_args():
     parser.add_argument('--optim', type=str, default='Adam', help='the type of the optimizer.')
     parser.add_argument('--lr_ve', type=float, default=5e-5, help='the learning rate for the visual extractor.')
     parser.add_argument('--lr_ed', type=float, default=1e-4, help='the learning rate for the remaining parameters.')
+    parser.add_argument('--cls_w', type=float, default=0.5, help='the weight for classification loss')
     parser.add_argument('--weight_decay', type=float, default=5e-5, help='the weight decay.')
     parser.add_argument('--decay_epochs', type=int, default=10, help='the weight decay.')
     parser.add_argument('--amsgrad', type=bool, default=True, help='.')
@@ -175,11 +176,12 @@ def parse_args():
 
     # Others
     parser.add_argument('--seed', type=int, default=9233, help='.')
-    parser.add_argument('--fp16', type=bool, default=False, help='whether to use fp16 training')
-    parser.add_argument('--balanced', type=bool, default=True, help='whether to use balanced sampler')
-    parser.add_argument('--finetune', type=bool, default=False, help='whether to finetune model')
-    parser.add_argument('--cls', type=bool, default=False, help='whether to perform classification')
-    parser.add_argument('--randaug', type=bool, default=False, help='whether to perform classification')
+    parser.add_argument('--fp16', action = 'store_true', help='whether to use fp16 training')
+    parser.add_argument('--balanced', action = 'store_true', help='whether to use balanced sampler')
+    parser.add_argument('--finetune', action = 'store_true', help='whether to finetune model')
+    parser.add_argument('--cls', action = 'store_true', help='whether to perform classification')
+    parser.add_argument('--addcls', action = 'store_true', help='whether to add classification')
+    parser.add_argument('--randaug', action = 'store_true', help='whether to perform classification')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

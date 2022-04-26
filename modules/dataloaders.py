@@ -16,6 +16,7 @@ class R2DataLoader(DataLoader):
         self.num_workers = args.num_workers
         self.tokenizer = tokenizer
         self.split = split
+        self.drop_last = True if split =='train' else False
         self.vis = vis
 
         if split == 'train':
@@ -54,9 +55,9 @@ class R2DataLoader(DataLoader):
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
 
-        if self.dataset_name == 'iu_xray' and not args.finetune:
+        if self.dataset_name == 'iu_xray' and not args.cls:
             self.dataset = IuxrayMultiImageDataset(self.args, self.tokenizer, self.split, transform=self.transform)
-        elif self.dataset_name == 'iu_xray' and args.finetune:
+        elif self.dataset_name == 'iu_xray' and args.cls:
             self.dataset = IuxrayMultiImageClsDataset(self.args, self.split, transform=self.transform, vis = self.vis)
         elif self.dataset_name.startswith('mimic') and not args.cls:
             self.dataset = MimiccxrSingleImageDataset(self.args,  self.tokenizer, self.split, transform=self.transform)
@@ -65,7 +66,7 @@ class R2DataLoader(DataLoader):
 
         if args.balanced:
             if split == 'train' and not self.vis:
-                print('Balanced sampler is established for ' + split +'dataset.')
+                print('Balanced sampler is established for ' + split +' dataset.')
                 self.sampler = MultilabelBalancedRandomSampler(np.array(self.dataset._labels))
                 self.init_kwargs = {
                     'dataset': self.dataset,
@@ -73,7 +74,7 @@ class R2DataLoader(DataLoader):
                     'sampler': self.sampler,
                     'num_workers': self.num_workers,
                     'pin_memory': True,
-                    'drop_last': True,
+                    'drop_last': self.drop_last,
                     'collate_fn': self.collate_fn,
                 }
             else:
@@ -82,10 +83,9 @@ class R2DataLoader(DataLoader):
                     # 'sampler': self.sampler,
                     'batch_size': self.batch_size,
                     'shuffle': shuffle,
-                    #'collate_fn': self.collate_fn,
                     'num_workers': self.num_workers,
                     'pin_memory': True,
-                    'drop_last': False,
+                    'drop_last': self.drop_last,
                     'collate_fn': self.collate_fn,
                 }
 
@@ -98,7 +98,7 @@ class R2DataLoader(DataLoader):
                 'collate_fn': self.collate_fn,
                 'num_workers': self.num_workers,
                 'pin_memory': True,
-                'drop_last': False
+                'drop_last': self.drop_last
             }
 
 
@@ -112,9 +112,10 @@ class R2DataLoader(DataLoader):
 
     @staticmethod
     def collate_fn(data):
-        images_id, images, reports_ids, reports_masks, seq_lengths = zip(*data)
+        images_id, images, reports_ids, reports_masks, seq_lengths, labels = zip(*data)
         images = torch.stack(images, 0)
         max_seq_length = max(seq_lengths)
+        labels = np.array(labels)
 
         targets = np.zeros((len(reports_ids), max_seq_length), dtype=int)
         targets_masks = np.zeros((len(reports_ids), max_seq_length), dtype=int)
@@ -125,5 +126,5 @@ class R2DataLoader(DataLoader):
         for i, report_masks in enumerate(reports_masks):
             targets_masks[i, :len(report_masks)] = report_masks
 
-        return images_id, images, torch.LongTensor(targets), torch.FloatTensor(targets_masks)
+        return images_id, images, torch.LongTensor(targets), torch.FloatTensor(targets_masks), torch.FloatTensor(labels)
 

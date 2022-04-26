@@ -10,6 +10,7 @@ class R2GenModel(nn.Module):
     def __init__(self, args, tokenizer, logger = None, config = None):
         super(R2GenModel, self).__init__()
         self.args = args
+        self.addcls = args.addcls
         self.tokenizer = tokenizer
         self.visual_extractor = VisualExtractor(args, logger, config)
         if args.ed_name == 'r2gen':
@@ -56,12 +57,17 @@ class R2GenModel(nn.Module):
     #     return output
 
     def forward(self, images, targets=None, mode='train'):
-        patch_feats, gbl_feats = self.visual_extractor(images)
+        if self.addcls:
+            patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
+        else:
+            patch_feats, gbl_feats = self.visual_extractor(images)
         if mode == 'train':
             output = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
         elif mode == 'sample':
             output, _ = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
         else:
             raise ValueError
+        if self.addcls:
+            return output, logits, cams
         return output
 

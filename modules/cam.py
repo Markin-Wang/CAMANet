@@ -11,33 +11,37 @@ class CAM:
 
     def compute_scores(self,patch_feats, fc_layer, class_idx):
         weights = self._get_weights(fc_layer, class_idx)
-        cams = []
-
         with torch.no_grad():
-            for weight, activation in zip(weights, self.hook_a):
-                missing_dims = activation.ndim - weight.ndim  # type: ignore[union-attr]
-                weight = weight[(...,) + (None,) * missing_dims]
+        # n_cam = weights.shape[0]
+        #patch_feats = patch_feats.unsqueeze(1).expand(patch_feats.shape[0], n_cam, patch_feats.shape[1],patch_feats.shape[2])
+            cams = torch.matmul(patch_feats, weights.transpose(-2,-1)).transpose(-2,-1)
+        # print(cams.shape)
+        #
+        #
+        #     for weight, activation in zip(weights, patch_feats):
+        #         # missing_dims = activation.ndim - weight.ndim  # type: ignore[union-attr]
+        #         # weight = weight[(...,) + (None,) * missing_dims]
+        #
+        #         # Perform the weighted combination to get the CAM
+        #         cam = torch.nansum(weight * activation, dim=1)  # type: ignore[union-attr]
 
-                # Perform the weighted combination to get the CAM
-                cam = torch.nansum(weight * activation, dim=1)  # type: ignore[union-attr]
-
-                if self.relu:
-                    cam = F.relu(cam, inplace=True)
+            if self.relu:
+                cams = F.relu(cams, inplace=True)
 
                 # Normalize the CAM
-                if self.normalized:
-                    cam = self._normalize(cam)
+            if self.normalized:
+                    cams = self._normalize(cams)
 
-                cams.append(cam)
+            #cams.append(cam)
         return cams
 
     @staticmethod
     @torch.no_grad()
     def _normalize(cams: Tensor, spatial_dims: Optional[int] = None) -> Tensor:
         """CAM normalization."""
-        spatial_dims = cams.ndim - 1 if spatial_dims is None else spatial_dims
-        cams.sub_(cams.flatten(start_dim=-spatial_dims).min(-1).values[(...,) + (None,) * spatial_dims])
-        cams.div_(cams.flatten(start_dim=-spatial_dims).max(-1).values[(...,) + (None,) * spatial_dims])
+        cams.sub_(cams.min(-1).values[(..., None)])
+        cams.div_(cams.max(-1).values[(..., None)])
+        return cams
 
 
     @torch.no_grad()
@@ -46,8 +50,8 @@ class CAM:
         if fc_weights.ndim > 2:
             fc_weights = fc_weights.view(*fc_weights.shape[:2])
         if isinstance(class_idx, int):
-            return [fc_weights[class_idx, :].unsqueeze(0)]
+            return fc_weights[class_idx, :].unsqueeze(0)
         else:
-            return [fc_weights[class_idx, :]]
+            return fc_weights[class_idx, :]
 
 

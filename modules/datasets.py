@@ -38,6 +38,9 @@ class IuxrayMultiImageDataset(BaseDataset):
     def __getitem__(self, idx):
         example = self.examples[idx]
         image_id = example['id']
+        array = image_id.split('-')
+        modified_id = array[0] + '-' + array[1]
+        label = np.array(self.labels[modified_id]).astype(np.float32)
         image_path = example['image_path']
         image_1 = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
         image_2 = Image.open(os.path.join(self.image_dir, image_path[1])).convert('RGB')
@@ -48,7 +51,7 @@ class IuxrayMultiImageDataset(BaseDataset):
         report_ids = example['ids']
         report_masks = example['mask']
         seq_length = len(report_ids)
-        sample = (image_id, image, report_ids, report_masks, seq_length)
+        sample = (image_id, image, report_ids, report_masks, seq_length, label)
         return sample
 
 
@@ -57,13 +60,14 @@ class MimiccxrSingleImageDataset(BaseDataset):
         example = self.examples[idx]
         image_id = example['id']
         image_path = example['image_path']
+        label = np.array(self.labels[image_id]).astype(np.float32)
         image = Image.open(os.path.join(self.image_dir, image_path[0])).convert('RGB')
         if self.transform is not None:
             image = self.transform(image)
         report_ids = example['ids']
         report_masks = example['mask']
         seq_length = len(report_ids)
-        sample = (image_id, image, report_ids, report_masks, seq_length)
+        sample = (image_id, image, report_ids, report_masks, seq_length,label)
         return sample
 
 
@@ -203,6 +207,7 @@ class MimiccxrSingleImageClsDataset(BaseDataset):
         self.labels = json.loads(open(self.labels_path, 'r').read())
         self.transform = transform
         self._labels = [self.labels[e['id']] for e in self.examples]
+        self.vis = vis
 
     def __getitem__(self, idx):
         example = self.examples[idx]
@@ -216,7 +221,10 @@ class MimiccxrSingleImageClsDataset(BaseDataset):
         # report_masks = example['mask']
         # seq_length = len(report_ids)
         #sample = (image_id, image, report_ids, report_masks, seq_length)
-        return image, label
+        if self.vis:
+            return image, image_path, label
+        else:
+            return image, label
 
     def __len__(self):
         return len(self.examples)

@@ -248,7 +248,7 @@ def train(args, config, model):
         # compute output
         for image,path, tar in zip(images, paths, target):
             cur_cam = []
-            out = model(image[0].unsqueeze(0))
+            out = model(image.unsqueeze(0))
             labels = torch.where(torch.sigmoid(out.squeeze(0))>0.5)[0]
             if len(labels)>0:
                 count+=1
@@ -300,7 +300,7 @@ def train(args, config, model):
     mean = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32)
     std = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32)
     denorm = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-    image = imgs[0]['image'][0]
+    image = imgs[0]['image']
 
     map1 = cam[3][0]['map'][0].squeeze(0)
     print(33333, map1.shape, count)

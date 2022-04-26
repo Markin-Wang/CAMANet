@@ -30,6 +30,10 @@ class BaseTrainer(object):
         if len(device_ids) > 1:
             self.model = torch.nn.DataParallel(model, device_ids=device_ids)
 
+        if args.addcls:
+            self.cls_criterion = torch.nn.BCEWithLogitsLoss()
+            self.cls_w = args.cls_w
+
         self.criterion = criterion
         self.metric_ftns = metric_ftns
         self.optimizer = optimizer
@@ -209,34 +213,48 @@ class Trainer(BaseTrainer):
         self.writer = writer
         self.config = config
         self.tokenizer = tokenizer
+        self.addcls = args.addcls
 
     def _train_epoch(self, epoch):
 
-        train_loss = 0
+        ce_losses = 0
+        img_cls_losses = 0
         val_loss = 0
         num_steps = len(self.train_dataloader)
         self.model.train()
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
         with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
                   unit='it', total=len(self.train_dataloader)) as pbar:
-            for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.train_dataloader):
-                images, reports_ids, reports_masks = images.to(self.device, non_blocking=True), \
+            for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(self.train_dataloader):
+                images, reports_ids, reports_masks, labels = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
-                                                     reports_masks.to(self.device, non_blocking=True)
-
-                output = self.model(images, reports_ids, mode='train')
+                                                     reports_masks.to(self.device, non_blocking=True), \
+                                                     labels.to(self.device, non_blocking = True)
+                logits = None
+                if self.addcls:
+                    output, logits, cam = self.model(images, reports_ids, mode='train')
+                else:
+                    output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
-                train_loss += loss.item()
+
+                ce_losses += loss.item()
+                if logits is not None:
+                    img_cls_loss = self.cls_criterion(logits, labels)
+                    loss = loss + self.cls_w * img_cls_loss
+                    img_cls_losses = img_cls_loss.item()
+
+
                 self.optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
                 self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
-                pbar.set_postfix(loss=train_loss / (batch_idx + 1))
+                pbar.set_postfix(ce_loss=ce_losses / (batch_idx + 1), cls_loss=img_cls_losses / (batch_idx + 1))
                 pbar.update()
-            log = {'train_loss': train_loss / len(self.train_dataloader)}
-        self.writer.add_scalar('data/train_loss', train_loss, epoch)
+            log = {'ce_loss': ce_losses / len(self.train_dataloader)}
+        self.writer.add_scalar('data/ce_loss', ce_losses, epoch)
+        self.writer.add_scalar('data/cls_loss', img_cls_losses, epoch)
 
         self.model.eval()
         with tqdm(desc='Epoch %d - val' % epoch, unit='it', total=len(self.val_dataloader)) as pbar:
@@ -246,7 +264,10 @@ class Trainer(BaseTrainer):
                     images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
                                                          reports_ids.to(self.device,non_blocking=True), \
                                                          reports_masks.to(self.device, non_blocking=True)
-                    out = self.model(images, reports_ids, mode='train')
+                    if self.addcls:
+                        out, logits, cam = self.model(images, reports_ids, mode='train')
+                    else:
+                        out = self.model(images, reports_ids, mode='train')
                     loss = self.criterion(out, reports_ids, reports_masks)
                     val_loss += loss.item()
                     output = self.model(images, mode='sample')
@@ -279,7 +300,10 @@ class Trainer(BaseTrainer):
                                                          reports_masks.to(self.device, non_blocking=True)
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
-                    output = self.model(images, mode='sample')
+                    if self.addcls:
+                        out, logits, cam = self.model(images, reports_ids, mode='train')
+                    else:
+                        out = self.model(images, reports_ids, mode='train')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     test_res.extend(reports)
