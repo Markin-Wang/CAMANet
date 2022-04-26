@@ -46,6 +46,7 @@ class VisualExtractor(nn.Module):
         # self.head = Linear(self.num_features, n_classes)
         # trunc_normal_(self.head.weight, std=1 / math.sqrt(self.num_features * n_classes))
         # nn.init.constant_(self.head.bias, 0)
+        args.d_vf = self.num_features
 
     def forward(self, images, labels=None, mode='train'):
         if self.dataset_name == 'iu_xray':
