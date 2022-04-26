@@ -19,7 +19,8 @@ class R2DataLoader(DataLoader):
         self.vis = vis
 
         if split == 'train':
-            if args.finetune and not self.vis:
+            if args.randaug:
+                print('Random applied transformation is utilized for ' + split +' dataset.')
                 self.transform = transforms.Compose([
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
@@ -27,7 +28,7 @@ class R2DataLoader(DataLoader):
                     transforms.RandomRotation(15, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, translate=(
                         0.2, 0.2), interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, shear=20, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, shear=15, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, scale=(0.8, 1.2),
                                             interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
@@ -62,8 +63,9 @@ class R2DataLoader(DataLoader):
         elif self.dataset_name.startswith('mimic') and args.cls:
             self.dataset = MimiccxrSingleImageClsDataset(self.args, self.split, transform=self.transform, vis = self.vis)
 
-        if args.cls:
+        if args.balanced:
             if split == 'train' and not self.vis:
+                print('Balanced sampler is established for ' + split +'dataset.')
                 self.sampler = MultilabelBalancedRandomSampler(np.array(self.dataset._labels))
                 self.init_kwargs = {
                     'dataset': self.dataset,
@@ -71,7 +73,8 @@ class R2DataLoader(DataLoader):
                     'sampler': self.sampler,
                     'num_workers': self.num_workers,
                     'pin_memory': True,
-                    'drop_last': True
+                    'drop_last': True,
+                    'collate_fn': self.collate_fn,
                 }
             else:
                 self.init_kwargs = {
@@ -82,7 +85,8 @@ class R2DataLoader(DataLoader):
                     #'collate_fn': self.collate_fn,
                     'num_workers': self.num_workers,
                     'pin_memory': True,
-                    'drop_last': False
+                    'drop_last': False,
+                    'collate_fn': self.collate_fn,
                 }
 
         else:

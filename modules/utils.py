@@ -179,6 +179,7 @@ def parse_args():
     parser.add_argument('--balanced', type=bool, default=True, help='whether to use balanced sampler')
     parser.add_argument('--finetune', type=bool, default=False, help='whether to finetune model')
     parser.add_argument('--cls', type=bool, default=False, help='whether to perform classification')
+    parser.add_argument('--randaug', type=bool, default=False, help='whether to perform classification')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

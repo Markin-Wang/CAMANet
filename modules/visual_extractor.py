@@ -8,6 +8,7 @@ import numpy as np
 from timm.models.layers import trunc_normal_
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, Dropout, Softmax, Linear, Conv2d, LayerNorm
+from .cam import CAM
 
 
 class VisualExtractor(nn.Module):
@@ -43,10 +44,14 @@ class VisualExtractor(nn.Module):
             self.num_features = model.classifier.in_features
             self.model = model.features
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)
-        # self.head = Linear(self.num_features, n_classes)
+        if args.cls:
+            self.head = Linear(self.num_features, n_classes)
+            self.cam = CAM(normalized=True, relu=False)
         # trunc_normal_(self.head.weight, std=1 / math.sqrt(self.num_features * n_classes))
         # nn.init.constant_(self.head.bias, 0)
         args.d_vf = self.num_features
+        self.cls = args.cls
+
 
     def forward(self, images, labels=None, mode='train'):
         if self.dataset_name == 'iu_xray':
@@ -103,5 +108,7 @@ class VisualExtractor(nn.Module):
                 avg_feats = F.adaptive_avg_pool2d(patch_feats, (1, 1)).squeeze().reshape(-1, patch_feats.size(1))
                 batch_size, feat_size, _, _ = patch_feats.shape
                 patch_feats = patch_feats.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-        #logits = self.head(avg_feats)
+        if self.cls:
+            logits = self.head(avg_feats)
+
         return patch_feats,avg_feats

@@ -20,8 +20,12 @@ class BaseDataset(Dataset):
         self.image_dir = os.path.join(args.data_dir, args.dataset_name,  'images')
         self.ann_path = os.path.join(args.data_dir, args.dataset_name, 'annotation.json')
         self.ann = json.loads(open(self.ann_path, 'r').read())
+        self.labels_path = os.path.join(args.data_dir, args.dataset_name, args.label_path)
+        self.labels = json.loads(open(self.labels_path, 'r').read())
 
         self.examples = self.ann[self.split]
+        self._labels = [self.labels[e['id']] for e in self.examples]
+
         for i in range(len(self.examples)):
             self.examples[i]['ids'] = tokenizer(self.examples[i]['report'])[:self.max_seq_length]
             self.examples[i]['mask'] = [1] * len(self.examples[i]['ids'])
