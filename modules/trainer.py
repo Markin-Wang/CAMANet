@@ -275,14 +275,15 @@ class Trainer(BaseTrainer):
                                                          reports_masks.to(self.device, non_blocking=True), \
                                                          labels.to(self.device, non_blocking = True)
                     if self.addcls:
-                        output, logits, cam = self.model(images, reports_ids, mode='train')
+                        out, logits, cam = self.model(images, reports_ids, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
+                        output,_,_ = self.model(images, mode='sample')
                     else:
-                        output = self.model(images, reports_ids, mode='train')
-                    loss = self.criterion(output, reports_ids, reports_masks)
+                        out = self.model(images, reports_ids, mode='train')
+                        output = self.model(images, mode='sample')
+                    loss = self.criterion(out, reports_ids, reports_masks)
                     val_ce_losses += loss.item()
-                    output = self.model(images, mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     val_res.extend(reports)
