@@ -24,7 +24,15 @@ class BaseDataset(Dataset):
         self.labels = json.loads(open(self.labels_path, 'r').read())
 
         self.examples = self.ann[self.split]
-        self._labels = [self.labels[e['id']] for e in self.examples]
+        if args.dataset_name == 'iu_xray':
+            self._labels = []
+            for e in self.examples:
+                img_id = e['id']
+                array = img_id.split('-')
+                modified_id = array[0] + '-' + array[1]
+                self._labels.append(self.labels[modified_id])
+        else:
+            self._labels = [self.labels[e['id']] for e in self.examples]
 
         for i in range(len(self.examples)):
             self.examples[i]['ids'] = tokenizer(self.examples[i]['report'])[:self.max_seq_length]

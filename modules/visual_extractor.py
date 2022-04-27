@@ -82,17 +82,17 @@ class VisualExtractor(nn.Module):
                 patch_feats_1 = F.relu(self.model(images[:, 0]), inplace=True)
                 patch_feats_2 = F.relu(self.model(images[:, 1]), inplace=True)
                 # print(1111, torch.cat((patch_feats_1, patch_feats_2),dim=3).shape)
-                # avg_feats_1 = F.adaptive_avg_pool2d(patch_feats_1, (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
-                # avg_feats_2 = F.adaptive_avg_pool2d(patch_feats_2, (1, 1)).squeeze().reshape(-1, patch_feats_2.size(1))
+                avg_feats_1 = F.adaptive_avg_pool2d(patch_feats_1, (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
+                avg_feats_2 = F.adaptive_avg_pool2d(patch_feats_2, (1, 1)).squeeze().reshape(-1, patch_feats_2.size(1))
 
                 # avg_feats = (avg_feats_1 + avg_feats_2)/2
-                avg_feats = F.adaptive_avg_pool2d(torch.cat((patch_feats_1, patch_feats_2), dim=3),
-                                                  (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
-                # batch_size, feat_size, _, _ = patch_feats_1.shape
-                # patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-                # patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
-                # patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
-                # avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                #avg_feats = F.adaptive_avg_pool2d(torch.cat((patch_feats_1, patch_feats_2), dim=3),
+                #                                  (1, 1)).squeeze().reshape(-1, patch_feats_1.size(1))
+                batch_size, feat_size, _, _ = patch_feats_1.shape
+                patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
+                patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
+                patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
+                avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
 
         else:
             if self.ve_name.lower().startswith('vit'):

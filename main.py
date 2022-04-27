@@ -10,7 +10,7 @@ from modules.optimizers import build_optimizer, build_lr_scheduler
 from modules.trainer import Trainer
 from modules.loss import compute_loss
 from models.model import R2GenModel
-from modules.utils import parse_args
+from modules.utils import parse_args, auto_resume_helper, load_checkpoint
 from modules.logger import create_logger
 import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
@@ -69,7 +69,22 @@ def main():
     test_dataloader = R2DataLoader(args, tokenizer, split='test', shuffle=False)
 
     # build model architecture
-    model = R2GenModel(args, tokenizer, logger, config).cuda()
+    model = R2GenModel(args, tokenizer, logger, config)
+
+    resume = False
+    optimizer = build_optimizer(args, model)
+    lr_scheduler = build_lr_scheduler(config, optimizer, len(train_dataloader))
+
+
+    if args.finetune and not args.resume:
+        state_dict = torch.load(args.pretrained)['model']
+        logger.info(state_dict.keys())
+        state_dict.pop('head.weight')
+        state_dict.pop('head.bias')
+        model.load_state_dict(state_dict, strict=False)
+        logger.info(f'loading pretrained model {args.pretrained}, ignoring auto resume')
+
+    model.cuda()
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"number of params: {n_parameters}")
@@ -80,8 +95,6 @@ def main():
     metrics = compute_scores
 
     # build optimizer, learning rate scheduler
-    optimizer = build_optimizer(args, model)
-    lr_scheduler = build_lr_scheduler(config, optimizer, len(train_dataloader))
 
     # build trainer and start to train
     trainer = Trainer(model, criterion, metrics, optimizer, args, lr_scheduler, tokenizer,

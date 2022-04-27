@@ -5,6 +5,7 @@ import torch.distributed as dist
 import cv2
 import torchvision.transforms as tfs
 import numpy as np
+import os
 
 
 def penalty_builder(penalty_config):
@@ -81,7 +82,6 @@ def parse_args():
                              'part: sharding the dataset into nonoverlapping pieces and only cache one piece')
     parser.add_argument('--pretrained',
                         help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
-    parser.add_argument('--resume', help='resume from checkpoint')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
     parser.add_argument('--use-checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
@@ -182,6 +182,7 @@ def parse_args():
     parser.add_argument('--cls', action = 'store_true', help='whether to perform classification')
     parser.add_argument('--addcls', action = 'store_true', help='whether to add classification')
     parser.add_argument('--randaug', action = 'store_true', help='whether to perform classification')
+    parser.add_argument('--resume', action = 'store_true', help='resume from checkpoint')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)
@@ -433,3 +434,23 @@ def GetTransforms(image, target=None, type='common'):
     else:
         raise Exception(
             'Unknown transforms_type : '.format(type))
+
+def load_checkpoint(resume_file, model, optimizer, lr_scheduler, logger):
+    logger.info(f"==============> Resuming form {resume_file}....................")
+    checkpoint = torch.load(resume_file, map_location='cpu')
+    msg = model.load_state_dict(checkpoint['model'], strict=False)
+    logger.info(msg)
+    max_accuracy = 0.0
+    if 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        start_epoch = checkpoint['epoch'] + 1
+        # if 'amp' in checkpoint and config.AMP_OPT_LEVEL != "O0" and checkpoint['config'].AMP_OPT_LEVEL != "O0":
+        #     amp.load_state_dict(checkpoint['amp'])
+        # logger.info(f"=> loaded successfully '{config.MODEL.RESUME}' (epoch {checkpoint['epoch']})")
+        # if 'max_accuracy' in checkpoint:
+        #     max_accuracy = checkpoint['max_accuracy']
+
+    del checkpoint
+    torch.cuda.empty_cache()
+    return max_accuracy

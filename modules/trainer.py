@@ -6,6 +6,7 @@ import torch
 import pandas as pd
 from numpy import inf
 from tqdm import tqdm
+from modules.utils import auto_resume_helper
 try:
     # noinspection PyUnresolvedReferences
     from apex import amp
@@ -16,11 +17,12 @@ from modules.utils import get_grad_norm
 import torch.distributed as dist
 
 class BaseTrainer(object):
-    def __init__(self, model, criterion, metric_ftns, optimizer, args, logger, config):
+    def __init__(self, model, criterion, metric_ftns, optimizer, lr_scheduler, args, logger, config):
         self.args = args
 
         # setup GPU device if available, move model into configured device
         self.device, device_ids = self._prepare_device(args.n_gpu)
+        self.lr_scheduler = lr_scheduler
 
         # if config.AMP_OPT_LEVEL != "O0":
         #     model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
@@ -53,12 +55,13 @@ class BaseTrainer(object):
 
         self.start_epoch = 1
         self.checkpoint_dir = os.path.join(args.save_dir, args.exp_name)
+        self.best_epoch = 0
 
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
 
-        if args.resume is not None:
-            self._resume_checkpoint(args.resume)
+        if args.resume:
+            self._resume_checkpoint(self.checkpoint_dir)
 
         self.best_recorder = {'val': {self.mnt_metric: self.mnt_best},
                               'test': {self.mnt_metric_test: self.mnt_best}}
@@ -69,7 +72,6 @@ class BaseTrainer(object):
 
     def train(self):
         not_improved_count = 0
-        best_epoch = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
 
@@ -101,7 +103,7 @@ class BaseTrainer(object):
                     self.mnt_best = cur_metric
                     not_improved_count = 0
                     best = True
-                    best_epoch = epoch
+                    self.best_epoch = epoch
                 else:
                     not_improved_count += 1
 
@@ -109,7 +111,7 @@ class BaseTrainer(object):
                     self.logger.info("Validation performance didn\'t improve for {} epochs. " "Training stops.".format(
                         self.early_stop))
                     break
-            self.logger.info('current best model in: {}'.format(best_epoch))
+            self.logger.info('current best model in: {}'.format(self.best_epoch))
 
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
@@ -154,8 +156,11 @@ class BaseTrainer(object):
         state = {
             'epoch': epoch,
             'state_dict': self.model.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict(),
             'optimizer': self.optimizer.state_dict(),
-            'monitor_best': self.mnt_best
+            'monitor_best': self.mnt_best,
+            'monitor_test_best': self.mnt_test_best,
+            'best_epoch':self.best_epoch,
         }
         filename = os.path.join(self.checkpoint_dir, 'current_checkpoint.pth')
         torch.save(state, filename)
@@ -166,13 +171,17 @@ class BaseTrainer(object):
             print("Saving current best: model_best.pth ...")
 
     def _resume_checkpoint(self, resume_path):
-        resume_path = str(resume_path)
-        print("Loading checkpoint: {} ...".format(resume_path))
-        checkpoint = torch.load(resume_path)
+        resume_file = auto_resume_helper(resume_path)
+        #resume_path = str(resume_path)
+        print("Loading checkpoint: {} ...".format(resume_file))
+        checkpoint = torch.load(resume_file)
         self.start_epoch = checkpoint['epoch'] + 1
         self.mnt_best = checkpoint['monitor_best']
+        self.mnt_test_best = checkpoint['monitor_test_best']
         self.model.load_state_dict(checkpoint['state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.best_epoch = checkpoint['best_epoch']
+        self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
         print("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
@@ -205,8 +214,7 @@ class BaseTrainer(object):
 class Trainer(BaseTrainer):
     def __init__(self, model, criterion, metric_ftns, optimizer, args, lr_scheduler, tokenizer,
                  train_dataloader, val_dataloader, test_dataloader, writer, logger, config):
-        super(Trainer, self).__init__(model, criterion, metric_ftns, optimizer, args, logger, config)
-        self.lr_scheduler = lr_scheduler
+        super(Trainer, self).__init__(model, criterion, metric_ftns, optimizer, lr_scheduler, args, logger, config)
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.test_dataloader = test_dataloader
@@ -219,7 +227,8 @@ class Trainer(BaseTrainer):
 
         ce_losses = 0
         img_cls_losses = 0
-        val_loss = 0
+        val_ce_losses = 0
+        val_img_cls_losses = 0
         num_steps = len(self.train_dataloader)
         self.model.train()
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
@@ -260,50 +269,55 @@ class Trainer(BaseTrainer):
         with tqdm(desc='Epoch %d - val' % epoch, unit='it', total=len(self.val_dataloader)) as pbar:
             with torch.no_grad():
                 val_gts, val_res = [], []
-                for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.val_dataloader):
-                    images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                for batch_idx, (images_id, images, reports_ids, reports_masks,labels) in enumerate(self.val_dataloader):
+                    images, reports_ids, reports_masks,labels = images.to(self.device,non_blocking=True), \
                                                          reports_ids.to(self.device,non_blocking=True), \
-                                                         reports_masks.to(self.device, non_blocking=True)
+                                                         reports_masks.to(self.device, non_blocking=True), \
+                                                         labels.to(self.device, non_blocking = True)
                     if self.addcls:
-                        out, logits, cam = self.model(images, reports_ids, mode='train')
+                        output, logits, cam = self.model(images, reports_ids, mode='train')
+                        val_img_cls_loss = self.cls_criterion(logits,labels)
+                        val_img_cls_losses += val_img_cls_loss.item()
                     else:
-                        out = self.model(images, reports_ids, mode='train')
-                    loss = self.criterion(out, reports_ids, reports_masks)
-                    val_loss += loss.item()
+                        output = self.model(images, reports_ids, mode='train')
+                    loss = self.criterion(output, reports_ids, reports_masks)
+                    val_ce_losses += loss.item()
                     output = self.model(images, mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     val_res.extend(reports)
                     val_gts.extend(ground_truths)
-                    pbar.set_postfix(loss=val_loss / (batch_idx + 1))
+                    pbar.set_postfix(loss=val_ce_losses / (batch_idx + 1))
                     pbar.update()
                 val_met = self.metric_ftns({i: [gt] for i, gt in enumerate(val_gts)},
                                            {i: [re] for i, re in enumerate(val_res)})
                 log.update(**{'val_' + k: v for k, v in val_met.items()})
-                log.update({'val_loss': val_loss / len(self.val_dataloader)})
+                log.update({'val_loss': val_ce_losses / len(self.val_dataloader)})
                 self.writer.add_scalar('data/val_bleu1', val_met['BLEU_1'], epoch)
                 self.writer.add_scalar('data/val_bleu2', val_met['BLEU_2'], epoch)
                 self.writer.add_scalar('data/val_bleu3', val_met['BLEU_3'], epoch)
                 self.writer.add_scalar('data/val_bleu4', val_met['BLEU_4'], epoch)
                 self.writer.add_scalar('data/val_meteor', val_met['METEOR'], epoch)
                 self.writer.add_scalar('data/val_rouge-l', val_met['ROUGE_L'], epoch)
-        self.writer.add_scalar('data/val_loss', val_loss, epoch)
+        self.writer.add_scalar('data/val_ce_loss', val_ce_losses, epoch)
+        self.writer.add_scalar('data/val_cls_loss', val_img_cls_losses, epoch)
 
 
         self.model.eval()
         with tqdm(desc='Epoch %d - test' % epoch, unit='it', total=len(self.test_dataloader)) as pbar:
             with torch.no_grad():
                 test_gts, test_res = [], []
-                for batch_idx, (images_id, images, reports_ids, reports_masks) in enumerate(self.test_dataloader):
-                    images, reports_ids, reports_masks = images.to(self.device,non_blocking=True), \
+                for batch_idx, (images_id, images, reports_ids, reports_masks,labels) in enumerate(self.test_dataloader):
+                    images, reports_ids, reports_masks, labels = images.to(self.device,non_blocking=True), \
                                                          reports_ids.to(self.device,non_blocking=True), \
-                                                         reports_masks.to(self.device, non_blocking=True)
+                                                         reports_masks.to(self.device, non_blocking=True), \
+                                                         labels.cuda(self.device, non_blocking=True)
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
                     if self.addcls:
-                        out, logits, cam = self.model(images, reports_ids, mode='train')
+                        output, logits, cam = self.model(images, mode='sample')
                     else:
-                        out = self.model(images, reports_ids, mode='train')
+                        output = self.model(images,  mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     test_res.extend(reports)
