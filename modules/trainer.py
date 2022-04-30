@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 import time
 import torch
+import datetime
 import pandas as pd
 from numpy import inf
 from tqdm import tqdm
@@ -118,7 +119,7 @@ class BaseTrainer(object):
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
         epoch_time = time.time() - start
-        self.logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+        self.logger.info(f"EPOCH {self.epochs} training takes {datetime.timedelta(seconds=int(epoch_time))}")
         self._print_best()
         self._print_best_to_file()
 
