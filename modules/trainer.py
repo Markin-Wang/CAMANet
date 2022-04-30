@@ -71,6 +71,8 @@ class BaseTrainer(object):
         raise NotImplementedError
 
     def train(self):
+        start = time.time()
+        end = time.time()
         not_improved_count = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
             result = self._train_epoch(epoch)
@@ -115,6 +117,8 @@ class BaseTrainer(object):
 
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
+        epoch_time = time.time() - start
+        self.logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
         self._print_best()
         self._print_best_to_file()
 
@@ -258,8 +262,9 @@ class Trainer(BaseTrainer):
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
                 self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
+                memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
-                pbar.set_postfix(ce_loss=ce_losses / (batch_idx + 1), cls_loss=img_cls_losses / (batch_idx + 1))
+                pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses, epoch)
