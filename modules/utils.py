@@ -183,6 +183,7 @@ def parse_args():
     parser.add_argument('--addcls', action = 'store_true', help='whether to add classification')
     parser.add_argument('--randaug', action = 'store_true', help='whether to perform classification')
     parser.add_argument('--resume', action = 'store_true', help='resume from checkpoint')
+    parser.add_argument('--fbl', action='store_true', help='foreground background representation learning')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

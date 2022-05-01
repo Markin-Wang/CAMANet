@@ -246,7 +246,7 @@ class Trainer(BaseTrainer):
                                                      labels.to(self.device, non_blocking = True)
                 logits = None
                 if self.addcls:
-                    output, logits, cam = self.model(images, reports_ids, mode='train')
+                    output, logits, cam = self.model(images, reports_ids, labels, mode='train')
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
@@ -281,7 +281,7 @@ class Trainer(BaseTrainer):
                                                          reports_masks.to(self.device, non_blocking=True), \
                                                          labels.to(self.device, non_blocking = True)
                     if self.addcls:
-                        out, logits, cam = self.model(images, reports_ids, mode='train')
+                        out, logits, cam = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
                         output,_,_ = self.model(images, mode='sample')
