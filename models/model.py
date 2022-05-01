@@ -61,7 +61,7 @@ class R2GenModel(nn.Module):
     def forward(self, images, targets=None,labels=None, mode='train'):
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
-            if self.fbl:
+            if self.fbl and labels is not None:
                 fore_rep, back_rep = self.ForeBackLearning(patch_feats, cams, labels)
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep

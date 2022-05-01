@@ -322,7 +322,7 @@ class Trainer(BaseTrainer):
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
                     if self.addcls:
-                        output, logits, cam = self.model(images, mode='sample')
+                        output, logits, cam = self.model(images, labels = labels, mode='sample')
                     else:
                         output = self.model(images,  mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
