@@ -3,6 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from typing import Any, List, Optional, Tuple, Union
 from torch import Tensor, nn
+import numpy as np
 
 class CAM:
     def __init__(self, normalized = True, relu = False):
@@ -25,12 +26,12 @@ class CAM:
         #         # Perform the weighted combination to get the CAM
         #         cam = torch.nansum(weight * activation, dim=1)  # type: ignore[union-attr]
 
+
             if self.relu:
                 cams = F.relu(cams, inplace=True)
-
-                # Normalize the CAM
+        # Normalize the CAM
             if self.normalized:
-                    cams = self._normalize(cams)
+                cams = self._normalize(cams)
 
             #cams.append(cam)
         return cams
@@ -40,7 +41,9 @@ class CAM:
     def _normalize(cams: Tensor, spatial_dims: Optional[int] = None) -> Tensor:
         """CAM normalization."""
         cams.sub_(cams.min(-1).values[(..., None)])
-        cams.div_(cams.max(-1).values[(..., None)])
+        cams_max = cams.max(-1).values[(..., None)]
+        cams_max = torch.clamp(cams_max, min = 1e-12, max = 1)
+        cams.div_(cams_max)
         return cams
 
 
