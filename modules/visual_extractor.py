@@ -49,7 +49,7 @@ class VisualExtractor(nn.Module):
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)
         if args.addcls:
             self.head = Linear(self.num_features, n_classes)
-            self.cam = CAM(normalized=True, relu=False)
+            self.cam = CAM(normalized=True, relu=args.relu)
         # trunc_normal_(self.head.weight, std=1 / math.sqrt(self.num_features * n_classes))
         # nn.init.constant_(self.head.bias, 0)
         args.d_vf = self.num_features

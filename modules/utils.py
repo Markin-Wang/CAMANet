@@ -185,6 +185,7 @@ def parse_args():
     parser.add_argument('--resume', action = 'store_true', help='resume from checkpoint')
     parser.add_argument('--fbl', action='store_true', help='foreground background representation learning')
     parser.add_argument('--sub_back', action='store_true', help='whether sub background')
+    parser.add_argument('--relu', action='store_true', help='whether to use relu in cam')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)
