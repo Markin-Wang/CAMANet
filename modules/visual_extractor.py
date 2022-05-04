@@ -92,7 +92,8 @@ class VisualExtractor(nn.Module):
                 patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
-                avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                #avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                avg_feats = (avg_feats_2 + avg_feats_1) / 2
 
         else:
             if self.ve_name.lower().startswith('vit'):
@@ -115,7 +116,5 @@ class VisualExtractor(nn.Module):
         if self.addcls:
             logits = self.head(avg_feats)
             cams = self.cam.compute_scores(patch_feats, self.head, list(range(14)))
-
-        if self.addcls:
             return patch_feats, avg_feats, logits, cams
         return patch_feats, avg_feats

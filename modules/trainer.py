@@ -227,6 +227,7 @@ class Trainer(BaseTrainer):
         self.config = config
         self.tokenizer = tokenizer
         self.addcls = args.addcls
+        self.early_exit = args.early_exit
 
     def _train_epoch(self, epoch):
 
@@ -262,11 +263,14 @@ class Trainer(BaseTrainer):
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
-                self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
+                self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
                 pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
+                if self.early_exit and batch_idx>100:
+                    torch.save(self.model.records, 'cam_records.pth')
+                    exit()
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses, epoch)
         self.writer.add_scalar('data/cls_loss', img_cls_losses, epoch)
@@ -294,7 +298,9 @@ class Trainer(BaseTrainer):
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     val_res.extend(reports)
                     val_gts.extend(ground_truths)
-                    pbar.set_postfix(loss=val_ce_losses / (batch_idx + 1))
+                    memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+                    pbar.set_postfix(ce_ls=val_ce_losses / (batch_idx + 1), cls_ls=val_img_cls_losses / (batch_idx + 1),
+                                     mem=f'mem {memory_used:.0f}MB')
                     pbar.update()
                 val_met = self.metric_ftns({i: [gt] for i, gt in enumerate(val_gts)},
                                            {i: [re] for i, re in enumerate(val_res)})

@@ -15,6 +15,7 @@ class R2GenModel(nn.Module):
         self.visual_extractor = VisualExtractor(args, logger, config)
         self.fbl = args.fbl
         self.sub_back = args.sub_back
+        self.records = []
         if args.ed_name == 'r2gen':
             self.encoder_decoder = r2gen(args, tokenizer)
         elif args.ed_name == 'st_trans':
@@ -59,10 +60,12 @@ class R2GenModel(nn.Module):
     #     return output
 
     def forward(self, images, targets=None,labels=None, mode='train'):
+        save_img = images[0].detach().cpu()
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             if self.fbl and labels is not None:
-                fore_rep, back_rep = self.ForeBackLearning(patch_feats, cams, labels)
+                fore_rep, back_rep, fore_map = self.ForeBackLearning(patch_feats, cams, labels)
+                self.records.append([save_img,fore_map.detach().cpu()])
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
                 patch_feats = torch.cat((fore_rep, patch_feats), dim=1)
@@ -85,6 +88,6 @@ class R2GenModel(nn.Module):
         back_map = 1-fore_map
         fore_rep = torch.matmul(fore_map, patch_feats)
         back_rep = torch.matmul(back_map, patch_feats)
-        return fore_rep,back_rep
+        return fore_rep,back_rep, fore_map
 
 

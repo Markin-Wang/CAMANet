@@ -111,9 +111,10 @@ class Decoder(nn.Module):
         self.norm = LayerNorm(layer.d_model)
 
     def forward(self, x, hidden_states, src_mask, tgt_mask, memory):
+        attn = None
         for layer in self.layers:
-            x = layer(x, hidden_states, src_mask, tgt_mask, memory)
-        return self.norm(x)
+            x, attn = layer(x, hidden_states, src_mask, tgt_mask, memory)
+        return self.norm(x), attn
 
 
 class DecoderLayer(nn.Module):
@@ -129,7 +130,7 @@ class DecoderLayer(nn.Module):
         m = hidden_states
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask), memory)
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask), memory)
-        return self.sublayer[2](x, self.feed_forward, memory)
+        return self.sublayer[2](x, self.feed_forward, memory), self.src_attn.attn
 
 
 class ConditionalSublayerConnection(nn.Module):
@@ -383,5 +384,5 @@ class EncoderDecoder(AttModel):
             ys = it.unsqueeze(1)
         else:
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-        out = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+        out, _ = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
         return out[:, -1], [ys.unsqueeze(0)]
