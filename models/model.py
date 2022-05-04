@@ -3,8 +3,11 @@ import torch.nn as nn
 import numpy as np
 
 from modules.visual_extractor import VisualExtractor
-from modules.encoder_decoder import EncoderDecoder as r2gen
+from modules.my_encoder_decoder import EncoderDecoder as r2gen
 from modules.standard_trans import EncoderDecoder as st_trans
+from modules.cam_attn_con import  CamAttnCon
+from modules.my_encoder_decoder import LayerNorm
+from modules.forebacklearning import ForeBackLearning
 
 class R2GenModel(nn.Module):
     def __init__(self, args, tokenizer, logger = None, config = None):
@@ -14,6 +17,11 @@ class R2GenModel(nn.Module):
         self.tokenizer = tokenizer
         self.visual_extractor = VisualExtractor(args, logger, config)
         self.fbl = args.fbl
+        self.attn_cam = args.attn_cam
+        if self.fbl:
+            self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features) if args.norm_fbl else None)
+        if self.attn_cam:
+            self.attn_cam_con = CamAttnCon(method=args.attn_method)
         self.sub_back = args.sub_back
         self.records = []
         if args.ed_name == 'r2gen':
@@ -61,10 +69,11 @@ class R2GenModel(nn.Module):
 
     def forward(self, images, targets=None,labels=None, mode='train'):
         save_img = images[0].detach().cpu()
+        fore_map, total_attns = None, None
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             if self.fbl and labels is not None:
-                fore_rep, back_rep, fore_map = self.ForeBackLearning(patch_feats, cams, labels)
+                fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, labels)
                 self.records.append([save_img,fore_map.detach().cpu()])
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
@@ -73,21 +82,16 @@ class R2GenModel(nn.Module):
         else:
             patch_feats, gbl_feats = self.visual_extractor(images)
         if mode == 'train':
-            output = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
+            output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
+            if self.addcls and self.attn_cam:
+                fore_map, total_attns = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
         elif mode == 'sample':
             output, _ = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
         else:
             raise ValueError
-        if self.addcls:
-            return output, logits, cams
+        if self.addcls and mode == 'train':
+            return output, logits, cams, fore_map, total_attns
         return output
 
-    def ForeBackLearning(self,patch_feats,cam,labels):
-        cam = labels.unsqueeze(-1) * cam
-        fore_map, _ = torch.max(cam, dim=1, keepdim=True)
-        back_map = 1-fore_map
-        fore_rep = torch.matmul(fore_map, patch_feats)
-        back_rep = torch.matmul(back_map, patch_feats)
-        return fore_rep,back_rep, fore_map
 
 

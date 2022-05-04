@@ -44,17 +44,20 @@ class Transformer(nn.Module):
         self.tgt_embed = tgt_embed
         self.rm = rm
 
-    def forward(self, src, tgt, src_mask, tgt_mask):
-        return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask)
+    def forward(self, src, tgt, src_mask, tgt_mask, mode = 'train'):
+        return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask, mode)
 
     def encode(self, src, src_mask):
         return self.encoder(self.src_embed(src), src_mask)
 
-    def decode(self, hidden_states, src_mask, tgt, tgt_mask):
+    def decode(self, hidden_states, src_mask, tgt, tgt_mask,mode = 'sample'):
         memory = self.rm.init_memory(hidden_states.size(0)).to(hidden_states)
-        memory = self.rm(self.tgt_embed(tgt), memory)
-        out = self.decoder(self.tgt_embed(tgt), hidden_states, src_mask, tgt_mask, memory)
-        return out
+        target_emb = self.tgt_embed(tgt)
+        memory = self.rm(target_emb, memory)
+        if mode == 'train':
+            out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)
+            return out, hidden_states[:,0], target_emb, align_attns
+        return self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)
 
 
 class Encoder(nn.Module):
@@ -112,9 +115,11 @@ class Decoder(nn.Module):
         self.norm = LayerNorm(layer.d_model)
 
     def forward(self, x, hidden_states, src_mask, tgt_mask, memory):
+        attns = []
         for layer in self.layers:
-            x = layer(x, hidden_states, src_mask, tgt_mask, memory)
-        return self.norm(x)
+            x, attn = layer(x, hidden_states, src_mask, tgt_mask, memory)
+            attns.append(attn)
+        return self.norm(x), attns
 
 
 class DecoderLayer(nn.Module):
@@ -130,7 +135,7 @@ class DecoderLayer(nn.Module):
         m = hidden_states
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask), memory)
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask), memory)
-        return self.sublayer[2](x, self.feed_forward, memory)
+        return self.sublayer[2](x, self.feed_forward, memory), self.src_attn.attn
 
 
 class ConditionalSublayerConnection(nn.Module):
@@ -374,9 +379,9 @@ class EncoderDecoder(AttModel):
     def _forward(self, fc_feats, att_feats, seq, att_masks=None):
 
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
-        out = self.model(att_feats, seq, att_masks, seq_mask)
+        out, fore_rep_encoded, target_embed, align_attns = self.model(att_feats, seq, att_masks, seq_mask)
         outputs = F.log_softmax(self.logit(out), dim=-1)
-        return outputs
+        return outputs, fore_rep_encoded, target_embed, align_attns
 
     def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
 
@@ -384,5 +389,5 @@ class EncoderDecoder(AttModel):
             ys = it.unsqueeze(1)
         else:
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-        out = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+        out, _ = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
         return out[:, -1], [ys.unsqueeze(0)]
