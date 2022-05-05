@@ -251,7 +251,7 @@ class Trainer(BaseTrainer):
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True), \
                                                      labels.to(self.device, non_blocking = True)
-                logits, fore_map = None, None
+                logits, total_attn = None, None
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                 else:
@@ -264,7 +264,7 @@ class Trainer(BaseTrainer):
                     loss = loss + self.cls_w * img_cls_loss
                     img_cls_losses += img_cls_loss.item()
 
-                if fore_map is not None:
+                if total_attn is not None:
                     mse_loss = self.mse_criterion(fore_map,total_attn)
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
@@ -298,6 +298,7 @@ class Trainer(BaseTrainer):
                                                          reports_ids.to(self.device,non_blocking=True), \
                                                          reports_masks.to(self.device, non_blocking=True), \
                                                          labels.to(self.device, non_blocking = True)
+                    total_attn = None
                     if self.addcls:
                         out, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
@@ -307,7 +308,7 @@ class Trainer(BaseTrainer):
 
                     output = self.model(images, mode='sample')
 
-                    if fore_map is not None:
+                    if total_attn is not None:
                         mse_loss = self.mse_criterion(fore_map, total_attn)
                         val_mse_losses += mse_loss.item()
                     loss = self.criterion(out, reports_ids, reports_masks)
