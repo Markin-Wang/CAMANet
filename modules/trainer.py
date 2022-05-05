@@ -251,7 +251,7 @@ class Trainer(BaseTrainer):
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True), \
                                                      labels.to(self.device, non_blocking = True)
-                logits = None
+                logits, fore_map = None, None
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                 else:
