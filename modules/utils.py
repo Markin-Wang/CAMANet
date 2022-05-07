@@ -83,9 +83,9 @@ def parse_args():
     parser.add_argument('--pretrained',
                         help='pretrained weight from checkpoint, could be imagenet22k pretrained weight')
     parser.add_argument('--accumulation-steps', type=int, help="gradient accumulation steps")
-    parser.add_argument('--use-checkpoint', action='store_true',
+    parser.add_argument('--use_checkpoint', action='store_true',
                         help="whether to use gradient checkpointing to save memory")
-    parser.add_argument('--amp-opt-level', type=str, default='O1', choices=['O0', 'O1', 'O2'],
+    parser.add_argument('--amp_opt_level', type=str, default='O0', choices=['O0', 'O1', 'O2'],
                         help='mixed precision opt level, if O0, no amp is used')
     parser.add_argument('--output', default='output', type=str, metavar='PATH',
                         help='root of output folder, the full path is <output>/<model_name>/<tag> (default: output)')
@@ -116,7 +116,6 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=16, help='the number of samples for a batch')
 
     # Model settings (for visual extractor)
-    parser.add_argument('--visual_extractor', type=str, default='resnet101', help='the visual extractor to be used.')
     parser.add_argument('--visual_extractor_pretrained', type=bool, default=True, help='whether to load the pretrained visual extractor')
 
     # Model settings (for Transformer)
@@ -190,8 +189,11 @@ def parse_args():
     parser.add_argument('--drop_fbl', action='store_true', help='whether to perform dropout in fore back learning')
     parser.add_argument('--attn_method', type = str, default = 'weighted_sum', choices = ['weighted_sum', 'max'], help='method to generate the total attention map')
     parser.add_argument('--early_exit', action = 'store_true', help = 'used for test')
+    parser.add_argument('--clip_grad', action='store_true', help='whether to use clip grad')
     parser.add_argument('--cls_w', type=float, default=0.5, help='the weight for classification loss')
     parser.add_argument('--mse_w', type=float, default=0.5, help='the weight for mse loss')
+    parser.add_argument('--wmse', action='store_true', help='whether to use weighted mse')
+
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

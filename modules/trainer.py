@@ -8,14 +8,15 @@ import pandas as pd
 from numpy import inf
 from tqdm import tqdm
 from modules.utils import auto_resume_helper
+from modules.weighted_mesloss import Weighted_MSELoss
 try:
     # noinspection PyUnresolvedReferences
     from apex import amp
 except ImportError:
     amp = None
 
-from modules.utils import get_grad_norm
-import torch.distributed as dist
+# from modules.utils import get_grad_norm
+# import torch.distributed as dist
 
 class BaseTrainer(object):
     def __init__(self, model, criterion, metric_ftns, optimizer, lr_scheduler, args, logger, config):
@@ -24,12 +25,15 @@ class BaseTrainer(object):
         # setup GPU device if available, move model into configured device
         self.device, device_ids = self._prepare_device(args.n_gpu)
         self.lr_scheduler = lr_scheduler
+        self.clip_grad = args.clip_grad
 
         # if config.AMP_OPT_LEVEL != "O0":
         #     model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
         # model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK],
         #                                                   broadcast_buffers=False, find_unused_parameters=True)
         self.model = model
+        self.optimizer = optimizer
+        self.amp_opt_level = args.amp_opt_level
         if len(device_ids) > 1:
             self.model = torch.nn.DataParallel(model, device_ids=device_ids)
 
@@ -37,13 +41,13 @@ class BaseTrainer(object):
             self.cls_criterion = torch.nn.BCEWithLogitsLoss()
             self.cls_w = args.cls_w
         self.attn_cam = args.attn_cam
+        self.wmse = args.wmse
         if args.attn_cam:
-            self.mse_criterion = torch.nn.MSELoss()
+            self.mse_criterion = Weighted_MSELoss() if args.wmse else torch.nn.MSELoss()
             self.mse_w = args.mse_w
-
         self.criterion = criterion
         self.metric_ftns = metric_ftns
-        self.optimizer = optimizer
+
         self.logger = logger
 
         self.epochs = self.args.epochs
@@ -235,6 +239,8 @@ class Trainer(BaseTrainer):
 
     def _train_epoch(self, epoch):
 
+        self.optimizer.zero_grad()
+
         ce_losses = 0
         img_cls_losses = 0
         mse_losses = 0
@@ -253,7 +259,7 @@ class Trainer(BaseTrainer):
                                                      labels.to(self.device, non_blocking = True)
                 logits, total_attn = None, None
                 if self.addcls:
-                    output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
+                    output, logits, cam, fore_map, total_attn, weights = self.model(images, reports_ids, labels, mode='train')
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
@@ -265,14 +271,17 @@ class Trainer(BaseTrainer):
                     img_cls_losses += img_cls_loss.item()
 
                 if total_attn is not None:
-                    mse_loss = self.mse_criterion(fore_map,total_attn)
+                    mse_loss = self.mse_criterion(total_attn, fore_map, weights) if self.wmse else self.mse_criterion(total_attn, fore_map)
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
 
 
-                self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                if self.clip_grad:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 5.0)
+
+                #loss.backward()
+                #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
                 self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
@@ -300,7 +309,7 @@ class Trainer(BaseTrainer):
                                                          labels.to(self.device, non_blocking = True)
                     total_attn = None
                     if self.addcls:
-                        out, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
+                        out, logits, cam, fore_map, total_attn, weights = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
                     else:
@@ -309,7 +318,7 @@ class Trainer(BaseTrainer):
                     output = self.model(images, mode='sample')
 
                     if total_attn is not None:
-                        mse_loss = self.mse_criterion(fore_map, total_attn)
+                        mse_loss = self.mse_criterion(total_attn, fore_map, weights) if self.wmse else self.mse_criterion(total_attn, fore_map)
                         val_mse_losses += mse_loss.item()
                     loss = self.criterion(out, reports_ids, reports_masks)
                     val_ce_losses += loss.item()
