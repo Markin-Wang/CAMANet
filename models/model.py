@@ -91,7 +91,10 @@ class R2GenModel(nn.Module):
                 if self.wmse:
                     p_logits = torch.sigmoid(logits)
                     scores = (p_logits * labels).sum(dim=-1)
-                    weights = scores / labels.sum(dim=-1)
+                    scale = labels.sum(dim=-1)
+                    weights = torch.empty_like(scores).fill_(0)
+                    index = (scale != 0).nonzero()
+                    weights [index] = scores[index] / scale[index]
                 # print(weights)
         elif mode == 'sample':
             output, _ = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
