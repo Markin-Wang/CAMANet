@@ -26,6 +26,7 @@ class BaseTrainer(object):
         self.device, device_ids = self._prepare_device(args.n_gpu)
         self.lr_scheduler = lr_scheduler
         self.clip_grad = args.clip_grad
+        self.clip_value = args.clip_value
 
         # if config.AMP_OPT_LEVEL != "O0":
         #     model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
@@ -278,7 +279,7 @@ class Trainer(BaseTrainer):
 
                 loss.backward()
                 if self.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 5.0)
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
 
                 #loss.backward()
                 #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)

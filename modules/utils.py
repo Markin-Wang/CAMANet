@@ -193,6 +193,7 @@ def parse_args():
     parser.add_argument('--cls_w', type=float, default=0.5, help='the weight for classification loss')
     parser.add_argument('--mse_w', type=float, default=0.5, help='the weight for mse loss')
     parser.add_argument('--wmse', action='store_true', help='whether to use weighted mse')
+    parser.add_argument('--clip_value', type=float, default=0.1, help='the value for clip grad')
 
 
     args, unparsed = parser.parse_known_args()
