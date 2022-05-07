@@ -274,15 +274,15 @@ class Trainer(BaseTrainer):
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
-                #self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
-                self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
+                self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
+                # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
                 pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1),
                                  mse_ls = mse_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
                 if self.early_exit and batch_idx>100:
-                    torch.save(self.model.records, 'cam_records.pth')
+                    torch.save(self.model.records, 'cam_records_fblrelu.pth')
                     exit()
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses, epoch)

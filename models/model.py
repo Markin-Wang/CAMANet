@@ -67,14 +67,16 @@ class R2GenModel(nn.Module):
     #         raise ValueError
     #     return output
 
-    def forward(self, images, targets=None,labels=None, mode='train'):
-        #save_img = images[0].detach().cpu()
-        fore_map, total_attns = None, None
+    def forward(self, images, targets=None,labels=None, mode='train',vis = False):
+        if vis:
+            save_img = images[0].detach().cpu()
+        fore_map, total_attns, weights = None, None, None
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             if self.fbl and labels is not None:
                 fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, labels)
-                #self.records.append([save_img,fore_map.detach().cpu()])
+                if vis:
+                    self.records.append([save_img,fore_map[0].detach().cpu(),labels[0].detach().cpu()])
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
                 patch_feats = torch.cat((fore_rep, patch_feats), dim=1)
@@ -85,6 +87,10 @@ class R2GenModel(nn.Module):
             output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
             if self.addcls and self.attn_cam:
                 fore_map, total_attns = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
+                # p_logits = torch.sigmoid(logits)
+                # scores = (p_logits * labels).sum(dim=-1)
+                # weights = scores / labels.sum(dim=-1)
+                # print(weights)
         elif mode == 'sample':
             output, _ = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
         else:
@@ -92,6 +98,8 @@ class R2GenModel(nn.Module):
         if self.addcls and mode == 'train':
             return output, logits, cams, fore_map, total_attns
         return output
+
+
 
 
 
