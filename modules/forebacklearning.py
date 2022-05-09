@@ -17,4 +17,4 @@ class ForeBackLearning(nn.Module):
             fore_rep = self.norm(fore_rep)
         if self.dropout:
             fore_rep = self.dropout(fore_rep)
-        return fore_rep,back_rep, fore_map
+        return fore_rep, back_rep, fore_map

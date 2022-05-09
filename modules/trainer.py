@@ -9,11 +9,11 @@ from numpy import inf
 from tqdm import tqdm
 from modules.utils import auto_resume_helper
 from modules.weighted_mesloss import Weighted_MSELoss
-try:
-    # noinspection PyUnresolvedReferences
-    from apex import amp
-except ImportError:
-    amp = None
+# try:
+#     # noinspection PyUnresolvedReferences
+#     from apex import amp
+# except ImportError:
+#     amp = None
 
 # from modules.utils import get_grad_norm
 # import torch.distributed as dist
@@ -25,7 +25,6 @@ class BaseTrainer(object):
         # setup GPU device if available, move model into configured device
         self.device, device_ids = self._prepare_device(args.n_gpu)
         self.lr_scheduler = lr_scheduler
-        self.clip_grad = args.clip_grad
         self.clip_value = args.clip_value
 
         # if config.AMP_OPT_LEVEL != "O0":
@@ -34,7 +33,7 @@ class BaseTrainer(object):
         #                                                   broadcast_buffers=False, find_unused_parameters=True)
         self.model = model
         self.optimizer = optimizer
-        self.amp_opt_level = args.amp_opt_level
+
         if len(device_ids) > 1:
             self.model = torch.nn.DataParallel(model, device_ids=device_ids)
 
@@ -240,7 +239,6 @@ class Trainer(BaseTrainer):
 
     def _train_epoch(self, epoch):
 
-        self.optimizer.zero_grad()
 
         ce_losses = 0
         img_cls_losses = 0
@@ -251,6 +249,7 @@ class Trainer(BaseTrainer):
         num_steps = len(self.train_dataloader)
         self.model.train()
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
+        self.optimizer.zero_grad()
         with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
                   unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(self.train_dataloader):
@@ -276,10 +275,9 @@ class Trainer(BaseTrainer):
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
 
-
+                self.optimizer.zero_grad()
                 loss.backward()
-                if self.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
 
                 #loss.backward()
                 #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)

@@ -49,7 +49,8 @@ class VisualExtractor(nn.Module):
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)
         if args.addcls:
             self.head = Linear(self.num_features, n_classes)
-            self.cam = CAM(normalized=True, relu=args.relu)
+            #self.cam = CAM(normalized=True, relu=args.relu)
+            self.cam = CAM()
         # trunc_normal_(self.head.weight, std=1 / math.sqrt(self.num_features * n_classes))
         # nn.init.constant_(self.head.bias, 0)
         args.d_vf = self.num_features
@@ -93,7 +94,7 @@ class VisualExtractor(nn.Module):
                 patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
                 #avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
-                avg_feats = (avg_feats_2 + avg_feats_1) / 2
+                avg_feats = torch.mean(torch.cat((avg_feats_1, avg_feats_2), dim=1), dim=1)
 
         else:
             if self.ve_name.lower().startswith('vit'):

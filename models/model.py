@@ -20,7 +20,7 @@ class R2GenModel(nn.Module):
         self.wmse = args.wmse
         self.attn_cam = args.attn_cam
         if self.fbl:
-            self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features) if args.norm_fbl else None)
+            self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features))
         if self.attn_cam:
             self.attn_cam_con = CamAttnCon(method=args.attn_method)
         self.sub_back = args.sub_back

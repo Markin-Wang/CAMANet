@@ -31,5 +31,6 @@ class CamAttnCon(nn.Module):
             # print(total_attn[0], fore_map[0])
         else:
             raise NotImplementedError
+        #print(total_attn[0], fore_map[0])
         return fore_map, total_attn
 

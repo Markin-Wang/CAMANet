@@ -6,7 +6,7 @@ from torch import Tensor, nn
 import numpy as np
 
 class CAM:
-    def __init__(self, normalized = True, relu = False):
+    def __init__(self, normalized = True, relu = True):
         self.normalized = normalized
         self.relu = relu
 
