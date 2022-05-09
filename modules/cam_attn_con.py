@@ -21,6 +21,9 @@ class CamAttnCon(nn.Module):
             total_attn = torch.matmul(weights, attns).squeeze(1)
             fore_map = F.softmax(fore_map, dim=1)
         elif self.method == 'max':
+            scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
+            weights = F.softmax(scores, dim=1)
+            attns = weights * attns
             total_attn, _ = torch.max(attns, dim = 1)
         else:
             raise NotImplementedError
