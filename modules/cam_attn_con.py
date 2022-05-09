@@ -8,6 +8,7 @@ class CamAttnCon(nn.Module):
         super(CamAttnCon, self).__init__()
         # weighted sum or max
         self.method = method
+        self.sim = nn.CosineSimilarity(dim=2)
 
     def forward(self, fore_map, fore_rep_encoded, target_embed, align_attns):
         # how to process extra token
@@ -21,10 +22,13 @@ class CamAttnCon(nn.Module):
             total_attn = torch.matmul(weights, attns).squeeze(1)
             fore_map = F.softmax(fore_map, dim=1)
         elif self.method == 'max':
-            scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
-            weights = F.softmax(scores, dim=1)
-            attns = weights * attns
+            #scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
+            #weights = F.softmax(scores, dim=1)
+            weights = self.sim(target_embed, fore_rep_encoded.unsqueeze(1)).unsqueeze(-1)
+            attns = F.relu(weights * attns)
             total_attn, _ = torch.max(attns, dim = 1)
+            # print(total_attn.shape, fore_map.shape)
+            # print(total_attn[0], fore_map[0])
         else:
             raise NotImplementedError
         return fore_map, total_attn
