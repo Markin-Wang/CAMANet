@@ -94,7 +94,8 @@ class VisualExtractor(nn.Module):
                 patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
                 #avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
-                avg_feats = torch.mean(torch.cat((avg_feats_1, avg_feats_2), dim=1), dim=1)
+
+                avg_feats = torch.mean(torch.cat((avg_feats_1.unsqueeze(1), avg_feats_2.unsqueeze(1)), dim=1), dim=1)
 
         else:
             if self.ve_name.lower().startswith('vit'):
