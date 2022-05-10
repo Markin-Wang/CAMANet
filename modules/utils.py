@@ -187,13 +187,14 @@ def parse_args():
     parser.add_argument('--attn_cam', action='store_true', help='whether to perform attn cam consistency')
     # parser.add_argument('--norm_fbl', action='store_true', help='whether to perform norm in fore back learning')
     parser.add_argument('--drop_fbl', action='store_true', help='whether to perform dropout in fore back learning')
-    parser.add_argument('--attn_method', type = str, default = 'weighted_sum', choices = ['weighted_sum', 'max'], help='method to generate the total attention map')
+    parser.add_argument('--attn_method', type = str, default = 'mean', choices = ['mean', 'max'], help='method to generate the total attention map')
     parser.add_argument('--early_exit', action = 'store_true', help = 'used for test')
     # parser.add_argument('--clip_grad', action='store_true', help='whether to use clip grad')
     parser.add_argument('--cls_w', type=float, default=0.5, help='the weight for classification loss')
     parser.add_argument('--mse_w', type=float, default=0.5, help='the weight for mse loss')
     parser.add_argument('--wmse', action='store_true', help='whether to use weighted mse')
     parser.add_argument('--clip_value', type=float, default=0.1, help='the value for clip grad')
+    parser.add_argument('--topk', type=float, default=0.1, help='top k% in selected word attention')
 
 
     args, unparsed = parser.parse_known_args()

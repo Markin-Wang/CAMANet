@@ -249,7 +249,6 @@ class Trainer(BaseTrainer):
         num_steps = len(self.train_dataloader)
         self.model.train()
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
-        self.optimizer.zero_grad()
         with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
                   unit='it', total=len(self.train_dataloader)) as pbar:
             for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(self.train_dataloader):
@@ -260,6 +259,7 @@ class Trainer(BaseTrainer):
                 logits, total_attn = None, None
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn, weights = self.model(images, reports_ids, labels, mode='train')
+                    #print(torch.std(fore_map[0].detach().cpu()), torch.std(total_attn[0].detach().cpu()))
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
