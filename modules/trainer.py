@@ -288,10 +288,10 @@ class Trainer(BaseTrainer):
                 self.optimizer.step()
                 self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
 
-                # if total_attn is not None:
-                #     std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
-                #     std_fores += std_fore.mean().item()
-                #     std_attns += std_attn.mean().item()
+                if total_attn is not None:
+                    std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
+                    std_fores += std_fore.mean().item()
+                    std_attns += std_attn.mean().item()
 
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
