@@ -261,9 +261,6 @@ class Trainer(BaseTrainer):
                 logits, total_attn = None, None
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
-                    std_fore, std_attn = torch.std(fore_map.detach().cpu(), dim = 1), torch.std(total_attn.detach().cpu(), dim=1)
-                    std_fores += std_fore.mean()
-                    std_attns += std_attn.mean()
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
@@ -283,10 +280,17 @@ class Trainer(BaseTrainer):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
 
+
                 #loss.backward()
                 #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
                 self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
+
+                if total_attn is not None:
+                    std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
+                    std_fores += std_fore.mean()
+                    std_attns += std_attn.mean()
+
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
