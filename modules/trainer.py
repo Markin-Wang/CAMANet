@@ -9,7 +9,6 @@ from numpy import inf
 from tqdm import tqdm
 from modules.utils import auto_resume_helper
 from modules.weighted_mesloss import Weighted_MSELoss
-torch.autograd.set_detect_anomaly(True)
 # try:
 #     # noinspection PyUnresolvedReferences
 #     from apex import amp
@@ -259,11 +258,13 @@ class Trainer(BaseTrainer):
                                                      reports_masks.to(self.device, non_blocking=True), \
                                                      labels.to(self.device, non_blocking = True)
                 logits, total_attn = None, None
+                time1 = time.time()
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
+
 
                 ce_losses += loss.item()
                 if logits is not None:
@@ -276,6 +277,7 @@ class Trainer(BaseTrainer):
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
 
+
                 self.optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
@@ -286,10 +288,10 @@ class Trainer(BaseTrainer):
                 self.optimizer.step()
                 self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
 
-                if total_attn is not None:
-                    std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
-                    std_fores += std_fore.mean()
-                    std_attns += std_attn.mean()
+                # if total_attn is not None:
+                #     std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
+                #     std_fores += std_fore.mean().item()
+                #     std_attns += std_attn.mean().item()
 
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)

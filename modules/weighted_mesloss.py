@@ -4,7 +4,7 @@ import torch
 class Weighted_MSELoss(torch.nn.Module):
 
     def __init__(self, weight = False):
-        super(Weighted_MSELoss, self).__init__()
+        super().__init__()
         self.weight = weight
         if not self.weight:
             self.criterion = MSELoss()
@@ -15,7 +15,7 @@ class Weighted_MSELoss(torch.nn.Module):
             scores = (p_logits * labels).sum(dim=-1)
             scale = labels.sum(dim=-1)
             weights = torch.empty_like(scores).fill_(0)
-            index = (scale != 0).nonzero()
+            index = (scale != 0).nonzero().squeeze(-1)
             weights [index] = scores[index] / scale[index]
             assert total_attn.shape == fore_map.shape
             assert total_attn.size(0) == weights.size(0)
@@ -26,7 +26,7 @@ class Weighted_MSELoss(torch.nn.Module):
             return loss
         else:
             scale = labels.sum(dim=-1)
-            index = (scale != 0).nonzero()
+            index = (scale != 0).nonzero().squeeze(-1)
             total_attn, fore_map = total_attn[index], fore_map[index]
             return self.criterion(total_attn, fore_map)
 
