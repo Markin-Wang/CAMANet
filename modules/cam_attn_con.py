@@ -19,7 +19,7 @@ class CamAttnCon(nn.Module):
         fore_map = fore_map.squeeze(1)
         weights = self.sim(target_embed, fore_rep_encoded.unsqueeze(1)).unsqueeze(-1)
         _, idxs = torch.topk(weights.squeeze(-1), k = int(self.topk*weights.shape[1]), dim = 1)
-        attns = F.relu(weights * attns)
+        attns = self._normalize(F.relu(weights * attns))
         attns = torch.gather(attns, dim = 1, index = idxs.unsqueeze(-1).expand(idxs.size(0),idxs.size(1),attns.shape[-1]))
         if self.method == 'mean':
             # scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
@@ -36,4 +36,14 @@ class CamAttnCon(nn.Module):
         else:
             raise NotImplementedError
         return fore_map, total_attn
+
+
+    def _normalize(self, cams):
+        """CAM normalization."""
+        cams = cams - cams.min(-1, keepdim=True).values
+        #cams.sub_(cams.min(-1).values[(..., None)])
+        cams_max = cams.max(-1).values[(..., None)]
+        cams_max = torch.clamp(cams_max, min = 1e-12, max = 1)
+        cams = cams / cams_max
+        return cams
 

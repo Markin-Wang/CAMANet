@@ -61,7 +61,7 @@ class VisualExtractor(nn.Module):
         if self.dataset_name == 'iu_xray':
             if self.ve_name.lower().startswith('vit'):
                 feats_1, attn_weights_1 = self.model.forward_patch_features(images[:, 0])
-                feats_2, attn_weights_2 = self.model.forward_patch_features(images[:, 0])
+                feats_2, attn_weights_2 = self.model.forward_patch_features(images[:, 1])
                 feats = torch.cat((feats_1, feats_2), dim=1)
                 patch_feats, avg_feats = feats[:, 1:, :], feats[:, 0, :]
             elif self.ve_name == 'swin_transformer':
@@ -78,7 +78,8 @@ class VisualExtractor(nn.Module):
                 patch_feats_1 = patch_feats_1.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats_2 = patch_feats_2.reshape(batch_size, feat_size, -1).permute(0, 2, 1)
                 patch_feats = torch.cat((patch_feats_1, patch_feats_2), dim=1)
-                avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                # avg_feats = torch.cat((avg_feats_1, avg_feats_2), dim=1)
+                avg_feats = torch.mean(torch.cat((avg_feats_1.unsqueeze(1), avg_feats_2.unsqueeze(1)), dim=1), dim=1)
             elif self.ve_name.startswith('densenet'):
                 patch_feats_1 = F.relu(self.model(images[:, 0]), inplace=True)
                 patch_feats_2 = F.relu(self.model(images[:, 1]), inplace=True)

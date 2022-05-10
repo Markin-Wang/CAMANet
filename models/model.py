@@ -22,7 +22,7 @@ class R2GenModel(nn.Module):
         if self.fbl:
             self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features))
         if self.attn_cam:
-            self.attn_cam_con = CamAttnCon(method=args.attn_method)
+            self.attn_cam_con = CamAttnCon(method=args.attn_method, topk= args.topk)
         self.sub_back = args.sub_back
         self.records = []
         if args.ed_name == 'r2gen':
@@ -88,20 +88,13 @@ class R2GenModel(nn.Module):
             output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
             if self.addcls and self.attn_cam:
                 fore_map, total_attns = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
-                if self.wmse:
-                    p_logits = torch.sigmoid(logits)
-                    scores = (p_logits * labels).sum(dim=-1)
-                    scale = labels.sum(dim=-1)
-                    weights = torch.empty_like(scores).fill_(0)
-                    index = (scale != 0).nonzero()
-                    weights [index] = scores[index] / scale[index]
                 # print(weights)
         elif mode == 'sample':
             output, _ = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
         else:
             raise ValueError
         if self.addcls and mode == 'train':
-            return output, logits, cams, fore_map, total_attns, weights
+            return output, logits, cams, fore_map, total_attns
         return output
 
 

@@ -9,6 +9,7 @@ from numpy import inf
 from tqdm import tqdm
 from modules.utils import auto_resume_helper
 from modules.weighted_mesloss import Weighted_MSELoss
+torch.autograd.set_detect_anomaly(True)
 # try:
 #     # noinspection PyUnresolvedReferences
 #     from apex import amp
@@ -43,7 +44,7 @@ class BaseTrainer(object):
         self.attn_cam = args.attn_cam
         self.wmse = args.wmse
         if args.attn_cam:
-            self.mse_criterion = Weighted_MSELoss() if args.wmse else torch.nn.MSELoss()
+            self.mse_criterion = Weighted_MSELoss(weight=args.wmse)
             self.mse_w = args.mse_w
         self.criterion = criterion
         self.metric_ftns = metric_ftns
@@ -246,6 +247,7 @@ class Trainer(BaseTrainer):
         val_ce_losses = 0
         val_img_cls_losses = 0
         val_mse_losses = 0
+        std_fores, std_attns = 0, 0
         num_steps = len(self.train_dataloader)
         self.model.train()
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
@@ -258,8 +260,10 @@ class Trainer(BaseTrainer):
                                                      labels.to(self.device, non_blocking = True)
                 logits, total_attn = None, None
                 if self.addcls:
-                    output, logits, cam, fore_map, total_attn, weights = self.model(images, reports_ids, labels, mode='train')
-                    #print(torch.std(fore_map[0].detach().cpu()), torch.std(total_attn[0].detach().cpu()))
+                    output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
+                    std_fore, std_attn = torch.std(fore_map.detach().cpu(), dim = 1), torch.std(total_attn.detach().cpu(), dim=1)
+                    std_fores += std_fore.mean()
+                    std_attns += std_attn.mean()
                 else:
                     output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
@@ -271,7 +275,7 @@ class Trainer(BaseTrainer):
                     img_cls_losses += img_cls_loss.item()
 
                 if total_attn is not None:
-                    mse_loss = self.mse_criterion(total_attn, fore_map, weights) if self.wmse else self.mse_criterion(total_attn, fore_map)
+                    mse_loss = self.mse_criterion(total_attn, fore_map, logits, labels)
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
 
@@ -293,9 +297,11 @@ class Trainer(BaseTrainer):
                     torch.save(self.model.records, 'cam_records_fblrelu.pth')
                     exit()
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
-        self.writer.add_scalar('data/ce_loss', ce_losses, epoch)
-        self.writer.add_scalar('data/cls_loss', img_cls_losses, epoch)
-        self.writer.add_scalar('data/mse_loss', mse_losses, epoch)
+        self.writer.add_scalar('data/ce_loss', ce_losses/len(self.train_dataloader), epoch)
+        self.writer.add_scalar('data/cls_loss', img_cls_losses/len(self.train_dataloader), epoch)
+        self.writer.add_scalar('data/mse_loss', mse_losses/len(self.train_dataloader), epoch)
+        self.writer.add_scalar('data/std_fore', std_fores/len(self.train_dataloader), epoch)
+        self.writer.add_scalar('data/std_attn', std_attns/len(self.train_dataloader), epoch)
 
         self.model.eval()
         with tqdm(desc='Epoch %d - val' % epoch, unit='it', total=len(self.val_dataloader)) as pbar:
@@ -308,7 +314,7 @@ class Trainer(BaseTrainer):
                                                          labels.to(self.device, non_blocking = True)
                     total_attn = None
                     if self.addcls:
-                        out, logits, cam, fore_map, total_attn, weights = self.model(images, reports_ids, labels, mode='train')
+                        out, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
                     else:
@@ -317,7 +323,7 @@ class Trainer(BaseTrainer):
                     output = self.model(images, mode='sample')
 
                     if total_attn is not None:
-                        mse_loss = self.mse_criterion(total_attn, fore_map, weights) if self.wmse else self.mse_criterion(total_attn, fore_map)
+                        mse_loss = self.mse_criterion(total_attn, fore_map, logits, labels)
                         val_mse_losses += mse_loss.item()
                     loss = self.criterion(out, reports_ids, reports_masks)
                     val_ce_losses += loss.item()
@@ -339,9 +345,9 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar('data/val_bleu4', val_met['BLEU_4'], epoch)
                 self.writer.add_scalar('data/val_meteor', val_met['METEOR'], epoch)
                 self.writer.add_scalar('data/val_rouge-l', val_met['ROUGE_L'], epoch)
-        self.writer.add_scalar('data/val_ce_loss', val_ce_losses, epoch)
-        self.writer.add_scalar('data/val_cls_loss', val_img_cls_losses, epoch)
-        self.writer.add_scalar('data/val_mse_loss', val_mse_losses, epoch)
+        self.writer.add_scalar('data/val_ce_loss', val_ce_losses/ len(self.val_dataloader), epoch)
+        self.writer.add_scalar('data/val_cls_loss', val_img_cls_losses/ len(self.val_dataloader), epoch)
+        self.writer.add_scalar('data/val_mse_loss', val_mse_losses/ len(self.val_dataloader), epoch)
 
 
         self.model.eval()
