@@ -258,7 +258,7 @@ class Trainer(BaseTrainer):
                                                      reports_masks.to(self.device, non_blocking=True), \
                                                      labels.to(self.device, non_blocking = True)
                 logits, total_attn = None, None
-                time1 = time.time()
+
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn = self.model(images, reports_ids, labels, mode='train')
                 else:
@@ -280,13 +280,14 @@ class Trainer(BaseTrainer):
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_value)
+                torch.nn.utils.clip_grad_value_(self.model.parameters(), self.clip_value)
 
 
                 #loss.backward()
                 #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
-                self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
+                #self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
+                self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
 
                 if total_attn is not None:
                     std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
