@@ -286,8 +286,8 @@ class Trainer(BaseTrainer):
                 #loss.backward()
                 #torch.nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                 self.optimizer.step()
-                #self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
-                self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
+                self.lr_scheduler.step_update((epoch-1) * num_steps + batch_idx)
+                #self.lr_scheduler.step_update(epoch * num_steps + batch_idx)
 
                 if total_attn is not None:
                     std_fore, std_attn = torch.std(fore_map.detach(), dim=1), torch.std(total_attn.detach(), dim=1)
