@@ -22,7 +22,7 @@ class R2GenModel(nn.Module):
         if self.fbl:
             self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features))
         if self.attn_cam:
-            self.attn_cam_con = CamAttnCon(method=args.attn_method, topk= args.topk)
+            self.attn_cam_con = CamAttnCon(method=args.attn_method, topk= args.topk, layer_id=args.layer_id)
         self.sub_back = args.sub_back
         self.records = []
         if args.ed_name == 'r2gen':

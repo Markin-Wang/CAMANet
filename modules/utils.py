@@ -192,6 +192,7 @@ def parse_args():
     # parser.add_argument('--clip_grad', action='store_true', help='whether to use clip grad')
     parser.add_argument('--cls_w', type=float, default=0.5, help='the weight for classification loss')
     parser.add_argument('--mse_w', type=float, default=0.5, help='the weight for mse loss')
+    parser.add_argument('--layer_id', type=int, default=2, choices=[0,1,2], help='the layer id in encoder to select attention')
     parser.add_argument('--wmse', action='store_true', help='whether to use weighted mse')
     parser.add_argument('--clip_value', type=float, default=0.1, help='the value for clip grad')
     parser.add_argument('--topk', type=float, default=0.1, help='top k% in selected word attention')

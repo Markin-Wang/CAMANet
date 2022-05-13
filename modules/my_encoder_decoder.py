@@ -36,13 +36,14 @@ def subsequent_mask(size):
 
 
 class Transformer(nn.Module):
-    def __init__(self, encoder, decoder, src_embed, tgt_embed, rm):
+    def __init__(self, encoder, decoder, src_embed, tgt_embed, rm, fbl=False):
         super(Transformer, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.src_embed = src_embed
         self.tgt_embed = tgt_embed
         self.rm = rm
+        self.fbl = fbl
 
     def forward(self, src, tgt, src_mask, tgt_mask, mode = 'train'):
         return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask, mode)
@@ -54,6 +55,8 @@ class Transformer(nn.Module):
         memory = self.rm.init_memory(hidden_states.size(0)).to(hidden_states)
         target_emb = self.tgt_embed(tgt)
         memory = self.rm(target_emb, memory)
+        if self.fbl:
+            hidden_states, src_mask = hidden_states[:,1:], src_mask[:,:,1:]
         if mode == 'train':
             out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)
             return out, hidden_states[:,0], target_emb, align_attns
@@ -322,7 +325,7 @@ class EncoderDecoder(AttModel):
                 self.num_layers),
             lambda x: x,
             nn.Sequential(Embeddings(self.d_model, tgt_vocab), c(position)),
-            rm)
+            rm, fbl=self.fbl)
         for p in model.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
@@ -339,6 +342,7 @@ class EncoderDecoder(AttModel):
         self.rm_num_slots = args.rm_num_slots
         self.rm_num_heads = args.rm_num_heads
         self.rm_d_model = args.rm_d_model
+        self.fbl = args.fbl
 
         tgt_vocab = self.vocab_size + 1
 
