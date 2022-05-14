@@ -393,5 +393,5 @@ class EncoderDecoder(AttModel):
             ys = it.unsqueeze(1)
         else:
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-        out, _ = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
-        return out[:, -1], [ys.unsqueeze(0)]
+        out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+        return out[:, -1], [ys.unsqueeze(0)], attns

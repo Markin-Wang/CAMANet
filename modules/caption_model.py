@@ -10,8 +10,9 @@ import modules.utils as utils
 
 
 class CaptionModel(nn.Module):
-    def __init__(self):
+    def __init__(self, vis=False):
         super(CaptionModel, self).__init__()
+        self.vis = vis
 
     # implements beam search
     # calls beam_step and returns the final set of beams
@@ -68,8 +69,11 @@ class CaptionModel(nn.Module):
                 assert logprobs.shape[1] == 1
                 beam_logprobs_sum = beam_logprobs_sum[:, :1]
             candidate_logprobs = beam_logprobs_sum.unsqueeze(-1) + logprobs  # beam_logprobs_sum Nxb logprobs is NxbxV
-            ys, ix = torch.sort(candidate_logprobs.reshape(candidate_logprobs.shape[0], -1), -1, True)
-            ys, ix = ys[:, :beam_size], ix[:, :beam_size]
+            # ys, ix = torch.sort(candidate_logprobs.reshape(candidate_logprobs.shape[0], -1), -1, True)
+            # ys, ix = ys[:, :beam_size], ix[:, :beam_size]
+            ys, ix = torch.topk(candidate_logprobs.reshape(candidate_logprobs.shape[0], -1), beam_size, -1, True)
+            # print(ys, ix)
+            # exit()
             #beam_ix = ix // vocab_size  # Nxb which beam
             # pytorch version difference
             beam_ix = torch.div(ix, vocab_size, rounding_mode = 'floor')
@@ -141,6 +145,7 @@ class CaptionModel(nn.Module):
         else:
             args = [[args[i][j] for i in range(len(args))] for j in range(group_size)]
 
+
         for t in range(self.max_seq_length + group_size - 1):
             for divm in range(group_size):
                 if t >= divm and t <= self.max_seq_length + divm - 1:
@@ -193,11 +198,19 @@ class CaptionModel(nn.Module):
                     # move the current group one step forward in time
 
                     it = beam_seq_table[divm][:, :, t - divm].reshape(-1)
-                    logprobs_table[divm], state_table[divm] = self.get_logprobs_state(it.cuda(), *(
+                    logprobs_table[divm], state_table[divm], attns = self.get_logprobs_state(it.cuda(), *(
                             args[divm] + [state_table[divm]]))
+
                     logprobs_table[divm] = F.log_softmax(logprobs_table[divm] / temperature, dim=-1)
 
         # all beams are sorted by their log-probabilities
+        if self.vis:
+            attns = [attn.reshape(batch_size, -1, 1, *attn.shape[1:] ) for attn in attns]
+            attns = torch.cat((attns[0], attns[1], attns[2]), dim=2)
+            for b in range(batch_size):
+                for i in range(group_size):
+                    for j in range(bdash):
+                        done_beams_table[b][i][j]['attn'] = attns[b][j]
         done_beams_table = [[sorted(done_beams_table[b][i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
                             for b in range(batch_size)]
         done_beams = [sum(_, []) for _ in done_beams_table]

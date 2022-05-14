@@ -196,6 +196,7 @@ def parse_args():
     parser.add_argument('--wmse', action='store_true', help='whether to use weighted mse')
     parser.add_argument('--clip_value', type=float, default=0.1, help='the value for clip grad')
     parser.add_argument('--topk', type=float, default=0.1, help='top k% in selected word attention')
+    parser.add_argument('--vis', action='store_true', help='vis attention weights, used in inference')
 
 
     args, unparsed = parser.parse_known_args()

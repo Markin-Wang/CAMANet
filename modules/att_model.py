@@ -35,7 +35,7 @@ def pack_wrapper(module, att_feats, att_masks):
 
 class AttModel(CaptionModel):
     def __init__(self, args, tokenizer):
-        super(AttModel, self).__init__()
+        super(AttModel, self).__init__(args.vis)
         self.args = args
         self.tokenizer = tokenizer
         self.vocab_size = len(tokenizer.idx2token)
@@ -46,6 +46,7 @@ class AttModel(CaptionModel):
         self.max_seq_length = args.max_seq_length
         self.att_feat_size = args.d_vf
         self.att_hid_size = args.d_model
+        self.vis = args.vis
 
         self.bos_idx = args.bos_idx
         self.eos_idx = args.eos_idx
@@ -86,13 +87,13 @@ class AttModel(CaptionModel):
         # 'it' contains a word index
         xt = self.embed(it)
 
-        output, state = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
+        output, state, attns = self.core(xt, fc_feats, att_feats, p_att_feats, state, att_masks)
         if output_logsoftmax:
             logprobs = F.log_softmax(self.logit(output), dim=1)
         else:
             logprobs = self.logit(output)
 
-        return logprobs, state
+        return logprobs, state, attns
 
     def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
@@ -115,25 +116,30 @@ class AttModel(CaptionModel):
 
         # first step, feed bos
         it = fc_feats.new_full([batch_size], self.bos_idx, dtype=torch.long)
-        logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
+        logprobs, state, attns = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
 
         p_fc_feats, p_att_feats, pp_att_feats, p_att_masks = utils.repeat_tensors(beam_size,
                                                                                   [p_fc_feats, p_att_feats,
                                                                                    pp_att_feats, p_att_masks]
                                                                                   )
         self.done_beams = self.beam_search(state, logprobs, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, opt=opt)
+        attns = []
         for k in range(batch_size):
             if sample_n == beam_size:
                 for _n in range(sample_n):
                     seq_len = self.done_beams[k][_n]['seq'].shape[0]
                     seq[k * sample_n + _n, :seq_len] = self.done_beams[k][_n]['seq']
+                    if self.vis:
+                        attns.append(self.done_beams[k][_n]['attn'])
                     seqLogprobs[k * sample_n + _n, :seq_len] = self.done_beams[k][_n]['logps']
             else:
                 seq_len = self.done_beams[k][0]['seq'].shape[0]
                 seq[k, :seq_len] = self.done_beams[k][0]['seq']  # the first beam has highest cumulative score
                 seqLogprobs[k, :seq_len] = self.done_beams[k][0]['logps']
+                if self.vis:
+                    attns.append(self.done_beams[k][0]['attn'])
         # return the samples and their log likelihoods
-        return seq, seqLogprobs
+        return seq, seqLogprobs,attns
 
     def _sample(self, fc_feats, att_feats, att_masks=None):
         opt = self.args.__dict__

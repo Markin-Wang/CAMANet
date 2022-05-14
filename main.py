@@ -14,11 +14,6 @@ from modules.utils import parse_args, auto_resume_helper, load_checkpoint
 from modules.logger import create_logger
 import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
-try:
-    # noinspection PyUnresolvedReferences
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 def main():
