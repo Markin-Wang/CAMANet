@@ -3,3 +3,7 @@ Implementation:
 2. Connection of DM and Attn
 3. Pretrain visual extrator
 4. Cross-image Contrastive Learning
+
+# Install the environment
+
+conda env create -f env.yml
