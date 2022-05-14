@@ -27,8 +27,7 @@ class Meteor:
                 stdout=subprocess.PIPE, \
                 stderr=subprocess.PIPE,
                 universal_newlines = True,
-                bufsize = 1,
-                shell = True)
+                bufsize = 1)
         # Used to guarantee thread safety
         self.lock = threading.Lock()
 
