@@ -6,4 +6,4 @@ Implementation:
 
 # Install the environment
 
-conda env create -f env.yml
+conda env create --name [env_name] --file evy.yml
