@@ -36,12 +36,13 @@ def subsequent_mask(size):
 
 
 class Transformer(nn.Module):
-    def __init__(self, encoder, decoder, src_embed, tgt_embed):
+    def __init__(self, encoder, decoder, src_embed, tgt_embed, fbl=False):
         super(Transformer, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.src_embed = src_embed
         self.tgt_embed = tgt_embed
+        self.fbl = fbl
 
     def forward(self, src, tgt, src_mask, tgt_mask, mode = 'train'):
         return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask, mode)
@@ -51,6 +52,8 @@ class Transformer(nn.Module):
 
     def decode(self, hidden_states, src_mask, tgt, tgt_mask, mode = 'sample'):
         target_emb = self.tgt_embed(tgt)
+        if self.fbl:
+            hidden_states, src_mask = hidden_states[:,1:], src_mask[:,:,1:]
         if mode == 'train':
             out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask)
             return out, hidden_states[:,0], target_emb, align_attns
@@ -321,7 +324,7 @@ class EncoderDecoder(AttModel):
                 self.num_layers),
             lambda x: x,
             nn.Sequential(Embeddings(self.d_model, tgt_vocab), c(position)),
-            )
+            fbl=self.fbl)
         for p in model.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
@@ -335,6 +338,7 @@ class EncoderDecoder(AttModel):
         self.d_ff = args.d_ff
         self.num_heads = args.num_heads
         self.dropout = args.dropout
+        self.fbl = args.fbl
 
         tgt_vocab = self.vocab_size + 1
 
@@ -386,5 +390,5 @@ class EncoderDecoder(AttModel):
             ys = it.unsqueeze(1)
         else:
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-        out, _ = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
-        return out[:, -1], [ys.unsqueeze(0)]
+        out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+        return out[:, -1], [ys.unsqueeze(0)], attns

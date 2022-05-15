@@ -7,3 +7,4 @@ Implementation:
 # Install the environment
 
 conda env create --name [env_name] --file evy.yml
+java jdk 1.8 is required
