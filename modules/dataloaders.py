@@ -26,14 +26,12 @@ class R2DataLoader(DataLoader):
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
                 transforms.RandomApply([
-                    transforms.RandomRotation(15, interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, translate=(
-                        0.2, 0.2), interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, shear=15, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomRotation(10, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomAffine(0, shear=10, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, scale=(0.8, 1.2),
                                             interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
-                transforms.RandomHorizontalFlip(),
+                #transforms.RandomHorizontalFlip(),
                 # transforms.RandomPerspective(distortion_scale=0.2),
                 # transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0),
                 transforms.ToTensor(),
