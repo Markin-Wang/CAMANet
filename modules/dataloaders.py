@@ -27,7 +27,7 @@ class R2DataLoader(DataLoader):
                 transforms.RandomCrop(224),
                 transforms.RandomApply([
                     transforms.RandomRotation(10, interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, shear=10, interpolation=transforms.InterpolationMode.BICUBIC),
+                    #transforms.RandomAffine(0, shear=10, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, scale=(0.8, 1.2),
                                             interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
