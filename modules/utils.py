@@ -197,7 +197,8 @@ def parse_args():
     parser.add_argument('--clip_value', type=float, default=0.1, help='the value for clip grad')
     parser.add_argument('--topk', type=float, default=0.1, help='top k% in selected word attention')
     parser.add_argument('--vis', action='store_true', help='vis attention weights, used in inference')
-
+    parser.add_argument('--fore_t', type=float, default=0.6, help='foreground threshold.')
+    parser.add_argument('--back_t', type=float, default=0.3, help='background threshold.')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)

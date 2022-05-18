@@ -7,7 +7,7 @@ from modules.my_encoder_decoder import EncoderDecoder as r2gen
 from modules.standard_trans import EncoderDecoder as st_trans
 from modules.cam_attn_con import  CamAttnCon
 from modules.my_encoder_decoder import LayerNorm
-from modules.forebacklearning import ForeBackLearning
+from modules.new_forebacklearning import ForeBackLearning
 
 class R2GenModel(nn.Module):
     def __init__(self, args, tokenizer, logger = None, config = None):
@@ -21,7 +21,8 @@ class R2GenModel(nn.Module):
         self.wmse = args.wmse
         self.attn_cam = args.attn_cam
         if self.fbl:
-            self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features))
+            self.fore_back_learn = ForeBackLearning(fore_t=args.fore_t, back_t=args.back_t, norm=LayerNorm(self.visual_extractor.num_features))
+            #self.fore_back_learn = ForeBackLearning(norm=LayerNorm(self.visual_extractor.num_features))
         if self.attn_cam:
             self.attn_cam_con = CamAttnCon(method=args.attn_method, topk= args.topk, layer_id=args.layer_id)
         self.sub_back = args.sub_back
@@ -74,7 +75,7 @@ class R2GenModel(nn.Module):
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             if self.fbl and labels is not None:
-                fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, labels)
+                fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, logits)
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
                 patch_feats = torch.cat((fore_rep, patch_feats), dim=1)
