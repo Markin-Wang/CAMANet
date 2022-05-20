@@ -66,7 +66,7 @@ def main():
             #if images_id[0] != 'data/mimic_cxr/images/p10/p10402372/s51966612/8797515b-595dfac0-77013a06-226b52bd-65681bf2.jpg':
             #    continue
             #print('000', reports_ids, reports_ids.shape)
-            output, attns = model(images, mode='sample')
+            output, attns = model(images, labels=labels, mode='sample')
             if args.addcls:
                 _, _, _, _, _, idxs =  model(images, reports_ids, labels, mode='train')
             else:

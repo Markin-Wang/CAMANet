@@ -79,7 +79,6 @@ class R2GenModel(nn.Module):
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
                 patch_feats = torch.cat((fore_rep, patch_feats), dim=1)
-                print(1111,patch_feats.shape)
 
         else:
             patch_feats, gbl_feats = self.visual_extractor(images)
@@ -89,7 +88,6 @@ class R2GenModel(nn.Module):
                 fore_map, total_attns, idxs = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
                 # print(weights)
         elif mode == 'sample':
-            print(22222, patch_feats.shape)
             output, _, attns = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
         else:
             raise ValueError
