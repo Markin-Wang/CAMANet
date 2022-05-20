@@ -53,19 +53,26 @@ def main():
         records = {}
         val_gts, val_res = [], []
         for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(tqdm(test_dataloader)):
+            # if batch_idx < 5: continue
             vis_data = {}
             vis_data['id'] = images_id
             vis_data['img'] = images
             vis_data['labels'] = labels
+            #
+            # print(images_id)
 
             images, reports_ids, reports_masks, labels = images.cuda(), reports_ids.cuda(), \
                                                          reports_masks.cuda(), labels.cuda()
             #if images_id[0] != 'data/mimic_cxr/images/p10/p10402372/s51966612/8797515b-595dfac0-77013a06-226b52bd-65681bf2.jpg':
             #    continue
             #print('000', reports_ids, reports_ids.shape)
+            output, attns = model(images, mode='sample')
+            if args.addcls:
+                _, _, _, _, _, idxs =  model(images, reports_ids, labels, mode='train')
+            else:
+                idxs = None
 
 
-            output, attns  = model(images, mode='sample')
             vis_data['attn'] = attns
             #output, img_con_ls, txt_con_ls, img_cls, txt_cls, attn_weights = model(images, reports_ids, labels=labels, mode='train')
             # change to self.model.module for multi-gpu
@@ -76,33 +83,39 @@ def main():
 
 
 
-            if args.n_gpu > 1:
-                reports = model.module.tokenizer.decode_batch(output.cpu().numpy())
-                ground_truths = model.module.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
-            else:
-                reports = model.tokenizer.decode_batch(output.cpu().numpy())
-                ground_truths = model.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+            # if args.n_gpu > 1:
+            #     reports = model.module.tokenizer.decode_batch(output.cpu().numpy())
+            #     ground_truths = model.module.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+            # else:
+            #     reports = model.tokenizer.decode_batch(output.cpu().numpy())
+            #     ground_truths = model.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
 
-            vis_data['pre'] = reports
-            vis_data['gt'] = ground_truths
+            vis_data['pre'] = []
+            vis_data['gt'] = []
             vis_data['met'] = []
+            if idxs is not None:
+                vis_data['idxs'] = idxs.detach().cpu()
+            # print(reports_ids[0].shape, len(ground_truths[0]))
 
 
-            for id, predict, gt in zip(images_id, reports, ground_truths):
+            for id, out, report_id in zip(images_id, output, reports_ids):
+                predict = model.tokenizer.decode(out.cpu().numpy())
+                gt = model.tokenizer.decode(report_id[1:].cpu().numpy())
                 val_met = metrics({id: [gt]}, {id: [predict]})
+                vis_data['pre'].append(predict)
+                vis_data['gt'].append((gt))
                 # if val_met['BLEU_4'] > 0.3:
                 #     records[id] = {'predict': predict, 'ground truth': gt, 'met': val_met, 'label': label}
                 vis_data['met'].append(val_met)
             data.append(vis_data)
-            if batch_idx >3:
+            if batch_idx >10:
                 break
 
     # f = open('mimic_prediction_our03.json', 'w', encoding='utf-8')
     # json.dump(records, f, indent=1)
     # f.close()
-    torch.save(data, args.exp_name+'_vis_data.pth')
-
-
+    torch.save(data, os.path.join('visualizations','vis', args.exp_name,'vis_data.pth'))
+    #torch.save([tokenizer.idx2token, tokenizer.token2idx], os.path.join('visualizations','vis', args.dataset_name+'token_map.pth'))
 
 
 

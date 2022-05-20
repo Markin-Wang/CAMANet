@@ -36,7 +36,7 @@ class CamAttnCon(nn.Module):
             # print(total_attn[0], fore_map[0])
         else:
             raise NotImplementedError
-        return fore_map, total_attn
+        return fore_map, total_attn, idxs
 
 
     def _normalize(self, cams):

@@ -189,7 +189,8 @@ class CaptionModel(nn.Module):
                                     'seq': beam_seq_table[divm][b, vix].clone(),
                                     'logps': beam_seq_logprobs_table[divm][b, vix].clone(),
                                     'unaug_p': beam_seq_logprobs_table[divm][b, vix].sum().item(),
-                                    'p': beam_logprobs_sum_table[divm][b, vix].item()
+                                    'p': beam_logprobs_sum_table[divm][b, vix].item(),
+                                    'attn': attns[b][vix].detach().cpu() if self.vis else None
                                 }
                                 final_beam['p'] = length_penalty(t - divm + 1, final_beam['p'])
                                 done_beams_table[b][divm].append(final_beam)
@@ -200,20 +201,29 @@ class CaptionModel(nn.Module):
                     it = beam_seq_table[divm][:, :, t - divm].reshape(-1)
                     logprobs_table[divm], state_table[divm], attns = self.get_logprobs_state(it.cuda(), *(
                             args[divm] + [state_table[divm]]))
+                    if self.vis:
+                        attns = [attn.reshape(batch_size, -1, 1, *attn.shape[1:]) for attn in attns]
+                        attns = torch.cat((attns[0], attns[1], attns[2]), dim=2)
 
                     logprobs_table[divm] = F.log_softmax(logprobs_table[divm] / temperature, dim=-1)
 
         # all beams are sorted by their log-probabilities
-        if self.vis:
-            attns = [attn.reshape(batch_size, -1, 1, *attn.shape[1:] ) for attn in attns]
-            attns = torch.cat((attns[0], attns[1], attns[2]), dim=2)
-            for b in range(batch_size):
-                for i in range(group_size):
-                    for j in range(bdash):
-                        done_beams_table[b][i][j]['attn'] = attns[b][j]
+        # if self.vis:
+        #     attns = [attn.reshape(batch_size, -1, 1, *attn.shape[1:] ) for attn in attns]
+        #     attns = torch.cat((attns[0], attns[1], attns[2]), dim=2)
+        #     for b in range(batch_size):
+        #         for i in range(group_size):
+        #             for j in range(bdash):
+        #                 print(len(done_beams_table[b][i]), attns[b].shape)
+        #                 done_beams_table[b][i][j]['attn'] = attns[b][j]
+        #             print(sorted(done_beams_table[b][i], key=lambda x: -x['p'])[:bdash][0].keys())
+        #
+        # print(done_beams_table[0][0][0].keys(), 111)
         done_beams_table = [[sorted(done_beams_table[b][i], key=lambda x: -x['p'])[:bdash] for i in range(group_size)]
                             for b in range(batch_size)]
+        # print(done_beams_table[0][0][0].keys(), 222)
         done_beams = [sum(_, []) for _ in done_beams_table]
+
         return done_beams
 
     def old_beam_search(self, init_state, init_logprobs, *args, **kwargs):

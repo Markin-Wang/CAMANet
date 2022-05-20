@@ -55,7 +55,7 @@ class Transformer(nn.Module):
         memory = self.rm.init_memory(hidden_states.size(0)).to(hidden_states)
         target_emb = self.tgt_embed(tgt)
         memory = self.rm(target_emb, memory)
-        if self.fbl:
+        if self.fbl and mode == 'train':
             hidden_states, src_mask = hidden_states[:,1:], src_mask[:,:,1:]
         if mode == 'train':
             out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)

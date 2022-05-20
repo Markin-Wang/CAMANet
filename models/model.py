@@ -7,7 +7,7 @@ from modules.my_encoder_decoder import EncoderDecoder as r2gen
 from modules.standard_trans import EncoderDecoder as st_trans
 from modules.cam_attn_con import  CamAttnCon
 from modules.my_encoder_decoder import LayerNorm
-from modules.new_forebacklearning import ForeBackLearning
+from modules.forebacklearning import ForeBackLearning
 
 class R2GenModel(nn.Module):
     def __init__(self, args, tokenizer, logger = None, config = None):
@@ -71,7 +71,7 @@ class R2GenModel(nn.Module):
     #     return output
 
     def forward(self, images, targets=None,labels=None, mode='train'):
-        fore_map, total_attns, weights, attns = None, None, None, None
+        fore_map, total_attns, weights, attns, idxs = None, None, None, None, None
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             if self.fbl and labels is not None:
@@ -85,7 +85,7 @@ class R2GenModel(nn.Module):
         if mode == 'train':
             output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
             if self.addcls and self.attn_cam:
-                fore_map, total_attns = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
+                fore_map, total_attns, idxs = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
                 # print(weights)
         elif mode == 'sample':
             output, _, attns = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
@@ -93,7 +93,7 @@ class R2GenModel(nn.Module):
             raise ValueError
         if mode == 'train':
             if self.addcls:
-                return output, logits, cams, fore_map, total_attns
+                return output, logits, cams, fore_map, total_attns, idxs
             else:
                 return output
         return output, attns
