@@ -52,7 +52,7 @@ class Transformer(nn.Module):
 
     def decode(self, hidden_states, src_mask, tgt, tgt_mask, mode = 'sample'):
         target_emb = self.tgt_embed(tgt)
-        if self.fbl and mode=='train':
+        if self.fbl:
             hidden_states, src_mask = hidden_states[:,1:], src_mask[:,:,1:]
         if mode == 'train':
             out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask)
