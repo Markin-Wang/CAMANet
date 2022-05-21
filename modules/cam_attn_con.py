@@ -12,7 +12,7 @@ class CamAttnCon(nn.Module):
         self.topk = topk
         self.layer_id = layer_id
 
-    def forward(self, fore_map, fore_rep_encoded, target_embed, align_attns):
+    def forward(self, fore_map, fore_rep_encoded, target_embed, align_attns, targets):
         # how to process extra token
         attns = align_attns[self.layer_id]
         attns = torch.mean(attns, dim=1)
@@ -20,18 +20,22 @@ class CamAttnCon(nn.Module):
         weights = self.sim(target_embed, fore_rep_encoded.unsqueeze(1)).unsqueeze(-1)
         _, idxs = torch.topk(weights.squeeze(-1), k = int(self.topk*weights.shape[1]), dim = 1)
         attns = F.relu(weights * attns)
-        attns = torch.gather(attns, dim = 1, index = idxs.unsqueeze(-1).expand(idxs.size(0),idxs.size(1),attns.shape[-1]))
-        attns = self._normalize(attns)
+        seq_len = torch.sum(targets != 0, dim=1).detach()
+        true_topk = seq_len * self.topk
         if self.method == 'mean':
             # scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             # weights = F.softmax(scores, dim=1).transpose(-1,-2)
             # total_attn = torch.matmul(weights, attns).squeeze(1)
-            total_attn, _ = torch.mean(attns, dim=1)
+            total_attn = [torch.mean(self._normalize(attn[:int(true_topk[i])]), dim=0).unsqueeze(0) for i, attn in enumerate(attns)]
+            #total_attn, _ = torch.mean(attns, dim=1)
             fore_map = F.softmax(fore_map, dim=1)
         elif self.method == 'max':
             #scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             #weights = F.softmax(scores, dim=1)
-            total_attn, _ = torch.max(attns, dim = 1)
+            total_attn = [torch.max(self._normalize(attn[:int(true_topk[i])]), dim=0).values.unsqueeze(0) for i, attn in
+                     enumerate(attns)]
+            total_attn = torch.cat(total_attn, dim=0)
+            #total_attn, _ = torch.max(attns, dim = 1)
             # print(total_attn.shape, fore_map.shape)
             # print(total_attn[0], fore_map[0])
         else:

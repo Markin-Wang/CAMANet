@@ -9,7 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from modules.forebacklearning import ForeBackLearning
 from .att_model import pack_wrapper, AttModel
 
 
@@ -339,11 +339,14 @@ class EncoderDecoder(AttModel):
         self.num_heads = args.num_heads
         self.dropout = args.dropout
         self.fbl = args.fbl
+        # if self.fbl:
+        #     self.fore_back_learn = ForeBackLearning(fore_t=args.fore_t, back_t=args.back_t, norm=LayerNorm(args.d_model))
 
         tgt_vocab = self.vocab_size + 1
 
         self.model = self.make_model(tgt_vocab)
         self.logit = nn.Linear(args.d_model, tgt_vocab)
+        # self.cls_logit = nn.Linear(args.d_model, 14)
 
     def init_hidden(self, bsz):
         return []
@@ -380,9 +383,9 @@ class EncoderDecoder(AttModel):
 
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
         out, fore_rep_encoded, target_embed, align_attns = self.model(att_feats, seq, att_masks, seq_mask)
-        outputs = F.log_softmax(self.logit(out), dim=-1), fore_rep_encoded, target_embed, align_attns
-
-        return outputs
+        outputs = F.log_softmax(self.logit(out), dim=-1)
+        # cls_logits = self.cls_logit(torch.mean(out,dim=1))
+        return outputs, fore_rep_encoded, target_embed, align_attns
 
     def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
 

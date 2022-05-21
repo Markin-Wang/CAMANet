@@ -74,7 +74,8 @@ class R2GenModel(nn.Module):
         fore_map, total_attns, weights, attns, idxs = None, None, None, None, None
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
-            if self.fbl and labels is not None:
+            #if self.fbl and labels is not None:
+            if self.fbl and mode=='train':
                 fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, logits)
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep
@@ -85,7 +86,7 @@ class R2GenModel(nn.Module):
         if mode == 'train':
             output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
             if self.addcls and self.attn_cam:
-                fore_map, total_attns, idxs = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns)
+                fore_map, total_attns, idxs = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns, targets)
                 # print(weights)
         elif mode == 'sample':
             output, _, attns = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
