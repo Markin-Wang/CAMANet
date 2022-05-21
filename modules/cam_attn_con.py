@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 import torch.nn.functional as F
+import math
 
 class CamAttnCon(nn.Module):
     # cam attention consistency
@@ -32,7 +33,7 @@ class CamAttnCon(nn.Module):
         elif self.method == 'max':
             #scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             #weights = F.softmax(scores, dim=1)
-            total_attn = [torch.max(self._normalize(attn[:int(true_topk[i])]), dim=0).values.unsqueeze(0) for i, attn in
+            total_attn = [torch.max(self._normalize(attn[:math.ceil(true_topk[i])]), dim=0).values.unsqueeze(0) for i, attn in
                      enumerate(attns)]
             total_attn = torch.cat(total_attn, dim=0)
             #total_attn, _ = torch.max(attns, dim = 1)
