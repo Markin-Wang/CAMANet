@@ -27,13 +27,13 @@ class CamAttnCon(nn.Module):
             # scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             # weights = F.softmax(scores, dim=1).transpose(-1,-2)
             # total_attn = torch.matmul(weights, attns).squeeze(1)
-            total_attn = [torch.mean(self._normalize(attn[:int(true_topk[i])]), dim=0).unsqueeze(0) for i, attn in enumerate(attns)]
+            total_attn = [torch.mean(self._normalize(attn[idxs[i][:math.ceil(true_topk[i])]]), dim=0).unsqueeze(0) for i, attn in enumerate(attns)]
             #total_attn, _ = torch.mean(attns, dim=1)
             fore_map = F.softmax(fore_map, dim=1)
         elif self.method == 'max':
             #scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             #weights = F.softmax(scores, dim=1)
-            total_attn = [torch.max(self._normalize(attn[:math.ceil(true_topk[i])]), dim=0).values.unsqueeze(0) for i, attn in
+            total_attn = [torch.max(self._normalize(attn[idxs[i][:math.ceil(true_topk[i])]]), dim=0).values.unsqueeze(0) for i, attn in
                      enumerate(attns)]
             total_attn = torch.cat(total_attn, dim=0)
             #total_attn, _ = torch.max(attns, dim = 1)
@@ -41,7 +41,7 @@ class CamAttnCon(nn.Module):
             # print(total_attn[0], fore_map[0])
         else:
             raise NotImplementedError
-        return fore_map, total_attn, idxs
+        return fore_map, total_attn, [idxs[i][:math.ceil(true_topk[i])] for i in range(len(attns))]
 
 
     def _normalize(self, cams):
