@@ -1,6 +1,10 @@
 from torch import nn
 import torch
 from copy import deepcopy as clone
+from typing import Any, List, Optional, Tuple, Union
+from torch import Tensor, nn
+import numpy as np
+
 
 class ForeBackLearning(nn.Module):
     def __init__(self, fore_t=0.5, back_t=0.3, norm=None,dropout=None):
@@ -22,6 +26,7 @@ class ForeBackLearning(nn.Module):
         #print(labels[0])
         cam = labels.unsqueeze(-1) * cam
         dm, _ = torch.max(cam, dim=1, keepdim=True)
+        dm = self._normalize(dm)
         fore_map, back_map = dm.clone(), dm.clone()
         # fore_idx = (fore_map <= self.fore_t).nonzero()
         # back_idx = (back_map >= self.back_t).nonzero()
@@ -38,3 +43,11 @@ class ForeBackLearning(nn.Module):
             fore_rep = self.fore_dropout(fore_rep)
             back_rep = self.back_dropout(back_rep)
         return fore_rep, back_rep, dm
+
+    def _normalize(self, cams: Tensor, spatial_dims: Optional[int] = None) -> Tensor:
+        """CAM normalization."""
+        cams.sub_(cams.min(-1).values[(..., None)])
+        cams_max = cams.max(-1).values[(..., None)]
+        cams_max = torch.clamp(cams_max, min = 1e-12, max = 1)
+        cams.div_(cams_max)
+        return cams
