@@ -49,7 +49,7 @@ class CamAttnCon(nn.Module):
         cams = cams - cams.min(-1, keepdim=True).values
         #cams.sub_(cams.min(-1).values[(..., None)])
         cams_max = cams.max(-1).values[(..., None)]
-        cams_max = torch.clamp(cams_max, min = 1e-12, max = 1)
+        cams_max[cams_max<1e-12] = 1e-12
         cams = cams / cams_max
         return cams
 

@@ -42,7 +42,7 @@ class CAM:
         """CAM normalization."""
         cams.sub_(cams.min(-1).values[(..., None)])
         cams_max = cams.max(-1).values[(..., None)]
-        cams_max = torch.clamp(cams_max, min = 1e-12, max = 1)
+        cams_max[cams_max<1e-12] = 1e-12
         cams.div_(cams_max)
         return cams
 
