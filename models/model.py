@@ -75,7 +75,7 @@ class R2GenModel(nn.Module):
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             #if self.fbl and labels is not None:
-            if self.fbl and mode=='train':
+            if self.fbl:
                 fore_rep, back_rep, fore_map = self.fore_back_learn(patch_feats, cams, logits)
                 if self.sub_back:
                     patch_feats = patch_feats - back_rep

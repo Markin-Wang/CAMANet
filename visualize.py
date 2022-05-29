@@ -68,7 +68,9 @@ def main():
             #print('000', reports_ids, reports_ids.shape)
             output, attns = model(images, labels=labels, mode='sample')
             if args.addcls:
-                _, _, _, _, _, idxs =  model(images, reports_ids, labels, mode='train')
+                _, logits, cams, fore_map, total_attns, idxs =  model(images, reports_ids, labels, mode='train')
+                vis_data['cams'] = cams.detach().cpu()
+                vis_data['fore_map'] = fore_map.detach().cpu()
             else:
                 idxs = None
 
@@ -94,7 +96,7 @@ def main():
             vis_data['gt'] = []
             vis_data['met'] = []
             if idxs is not None:
-                vis_data['idxs'] = idxs.detach().cpu()
+                vis_data['idxs'] = idxs
             # print(reports_ids[0].shape, len(ground_truths[0]))
 
 
@@ -108,7 +110,7 @@ def main():
                 #     records[id] = {'predict': predict, 'ground truth': gt, 'met': val_met, 'label': label}
                 vis_data['met'].append(val_met)
             data.append(vis_data)
-            if batch_idx >10:
+            if batch_idx >3:
                 break
 
     # f = open('mimic_prediction_our03.json', 'w', encoding='utf-8')
