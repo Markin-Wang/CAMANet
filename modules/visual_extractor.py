@@ -43,7 +43,13 @@ class VisualExtractor(nn.Module):
             self.model.head = None
             self.num_features = config.hidden_size
         elif args.ve_name.lower().startswith('densenet'):
-            model = getattr(models, args.ve_name)(pretrained=True)
+            if args.pretrained:
+                model = getattr(models, args.ve_name)(pretrained=False)
+                state_dict = torch.load(args.pretrained)['model']
+                logger.info(state_dict.keys())
+                model.load_state_dict(state_dict, strict=False)
+            else:
+                model = getattr(models, args.ve_name)(pretrained=True)
             self.num_features = model.classifier.in_features
             self.model = model.features
             self.avg_fnt = torch.nn.AvgPool2d(kernel_size=1, stride=1, padding=0)

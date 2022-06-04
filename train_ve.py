@@ -239,16 +239,14 @@ def train(args, config, model):
     # args.batch_size = args.batch_size // args.gradient_accumulation_steps
 
     if args.dataset_name == 'chexpert':
-        with open('./example.json') as f:
+        with open('./data/CheXpert-v1.0-small/example.json') as f:
             cfg = edict(json.load(f))
             train_transform = transforms.Compose([
                 transforms.Resize(256),
                 transforms.RandomCrop(224),
                 transforms.RandomApply([
-                    transforms.RandomRotation(15, interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, translate=(
-                        0.2, 0.2), interpolation=transforms.InterpolationMode.BICUBIC),
-                    transforms.RandomAffine(0, shear=20, interpolation=transforms.InterpolationMode.BICUBIC),
+                    transforms.RandomRotation(10, interpolation=transforms.InterpolationMode.BICUBIC),
+                    # transforms.RandomAffine(0, shear=10, interpolation=transforms.InterpolationMode.BICUBIC),
                     transforms.RandomAffine(0, scale=(0.8, 1.2),
                                             interpolation=transforms.InterpolationMode.BICUBIC)
                 ]),
