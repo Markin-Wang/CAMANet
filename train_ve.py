@@ -23,8 +23,8 @@ from modules.optimizers import build_optimizer_cls, build_lr_scheduler
 
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from apex import amp
-from apex.parallel import DistributedDataParallel as DDP
+# from apex import amp
+# from apex.parallel import DistributedDataParallel as DDP
 
 from modules.utils import parse_args
 from models.classifier import Classifier
