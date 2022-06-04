@@ -51,9 +51,10 @@ def main():
     data = []
     with torch.no_grad():
         records = {}
-        val_gts, val_res = [], []
+        test_gts, test_res = [], []
         for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(tqdm(test_dataloader)):
-            # if batch_idx < 5: continue
+            if batch_idx > 2:
+                break
             vis_data = {}
             vis_data['id'] = images_id
             vis_data['img'] = images
@@ -70,17 +71,19 @@ def main():
             if args.addcls:
                 _, logits, cams, fore_map, total_attns, idxs =  model(images, reports_ids, labels, mode='train')
                 vis_data['cams'] = cams.detach().cpu()
-                vis_data['fore_map'] = fore_map.detach().cpu()
+                vis_data['logits'] = logits.detach().cpu()
+                if fore_map is not None:
+                    vis_data['fore_map'] = fore_map.detach().cpu()
             else:
                 idxs = None
 
 
             vis_data['attn'] = attns
-            #output, img_con_ls, txt_con_ls, img_cls, txt_cls, attn_weights = model(images, reports_ids, labels=labels, mode='train')
-            # change to self.model.module for multi-gpu
 
-            #torch.save(attn_weights, 'attn_weights.pth')
-            #torch.save(reports_ids, 'id.pth')
+            # test_res.extend(reports)
+            # test_gts.extend(ground_truths)
+        # test_met = metrics({i: [gt] for i, gt in enumerate(test_gts)},
+        #                             {i: [re] for i, re in enumerate(test_res)})
 
 
 
@@ -104,14 +107,13 @@ def main():
                 predict = model.tokenizer.decode(out.cpu().numpy())
                 gt = model.tokenizer.decode(report_id[1:].cpu().numpy())
                 val_met = metrics({id: [gt]}, {id: [predict]})
-                vis_data['pre'].append(predict)
+                vis_data['pre'].append(out.cpu().numpy())
                 vis_data['gt'].append((gt))
                 # if val_met['BLEU_4'] > 0.3:
                 #     records[id] = {'predict': predict, 'ground truth': gt, 'met': val_met, 'label': label}
                 vis_data['met'].append(val_met)
             data.append(vis_data)
-            if batch_idx >3:
-                break
+
 
     # f = open('mimic_prediction_our03.json', 'w', encoding='utf-8')
     # json.dump(records, f, indent=1)

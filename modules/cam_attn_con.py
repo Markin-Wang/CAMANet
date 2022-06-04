@@ -27,7 +27,7 @@ class CamAttnCon(nn.Module):
             # scores = torch.matmul(target_embed, fore_rep_encoded.unsqueeze(-1))
             # weights = F.softmax(scores, dim=1).transpose(-1,-2)
             # total_attn = torch.matmul(weights, attns).squeeze(1)
-            total_attn = [self._normalize(torch.mean(ttn[idxs[i][:math.ceil(true_topk[i])]], dim=0)).unsqueeze(0) for i, attn in enumerate(attns)]
+            total_attn = [self._normalize(torch.mean(attn[idxs[i][:math.ceil(true_topk[i])]], dim=0)).unsqueeze(0) for i, attn in enumerate(attns)]
             #total_attn, _ = torch.mean(attns, dim=1)
             fore_map = F.softmax(fore_map, dim=1)
         elif self.method == 'max':

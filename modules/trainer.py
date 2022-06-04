@@ -175,7 +175,8 @@ class BaseTrainer(object):
             'monitor_test_best': self.mnt_test_best,
             'best_epoch':self.best_epoch,
         }
-        filename = os.path.join(self.checkpoint_dir, 'current_checkpoint.pth')
+        # filename = os.path.join(self.checkpoint_dir, 'current_checkpoint.pth')
+        filename = os.path.join(self.checkpoint_dir, 'checkpoint'+str(epoch)+'.pth')
         torch.save(state, filename)
         print("Saving checkpoint: {} ...".format(filename))
         if save_best:
