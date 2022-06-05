@@ -9,6 +9,8 @@ import numpy as np
 class ForeBackLearning(nn.Module):
     def __init__(self, fore_t=0.5, back_t=0.3, norm=None,dropout=None):
         super(ForeBackLearning, self).__init__()
+        self.norm = norm
+        self.dropout = dropout
         if norm:
             self.fore_norm = norm
             self.back_norm = clone(norm)
