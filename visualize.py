@@ -98,6 +98,7 @@ def main():
             vis_data['pre'] = []
             vis_data['gt'] = []
             vis_data['met'] = []
+            vis_data['train_pre'] = []
             if idxs is not None:
                 vis_data['idxs'] = idxs
             # print(reports_ids[0].shape, len(ground_truths[0]))
@@ -108,7 +109,7 @@ def main():
                 gt = model.tokenizer.decode(report_id[1:].cpu().numpy())
                 val_met = metrics({id: [gt]}, {id: [predict]})
                 vis_data['pre'].append(out.cpu().numpy())
-                vis_data['gt'].append((gt))
+                vis_data['gt'].append(report_id[1:].cpu().numpy())
                 # if val_met['BLEU_4'] > 0.3:
                 #     records[id] = {'predict': predict, 'ground truth': gt, 'met': val_met, 'label': label}
                 vis_data['met'].append(val_met)
@@ -118,7 +119,7 @@ def main():
     # f = open('mimic_prediction_our03.json', 'w', encoding='utf-8')
     # json.dump(records, f, indent=1)
     # f.close()
-    torch.save(data, os.path.join('visualizations','vis', args.exp_name,'vis_data.pth'))
+    torch.save(data, os.path.join('visualizations','vis', args.exp_name,'vis_data2.pth'))
     #torch.save([tokenizer.idx2token, tokenizer.token2idx], os.path.join('visualizations','vis', args.dataset_name+'token_map.pth'))
 
 
