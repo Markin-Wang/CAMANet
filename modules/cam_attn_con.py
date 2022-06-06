@@ -38,7 +38,7 @@ class CamAttnCon(nn.Module):
             #weights = F.softmax(scores, dim=1)
             # total_attn = [self._normalize(torch.max(attn[idxs[i][:math.ceil(true_topk[i])]], dim=0).values).unsqueeze(0) for i, attn in
             #          enumerate(attns)]
-            total_attn = [torch.max(attn[idxs[i][:math.ceil(true_topk[i])]], dim=0).values.unsqueeze(0) for i, attn in
+            total_attn = [self._normalize(torch.max(attn[idxs[i][:math.ceil(true_topk[i])]], dim=0).values).unsqueeze(0) for i, attn in
                      enumerate(attns)]
             total_attn = torch.cat(total_attn, dim=0)
             #total_attn, _ = torch.max(attns, dim = 1)
