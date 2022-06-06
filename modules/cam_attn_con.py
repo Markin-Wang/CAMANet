@@ -21,7 +21,7 @@ class CamAttnCon(nn.Module):
         attns = torch.mean(attns, dim=1)
         fore_map = fore_map.squeeze(1)
         weights = self.sim(target_embed, fore_rep_encoded.unsqueeze(1)).unsqueeze(-1)
-        weights[targets.unsqueeze(-1) == 0] = -2
+        weights = weights.masked_fill(targets.unsqueeze(-1) == 0, -1)
         _, idxs = torch.topk(weights.squeeze(-1), k = int(self.topk*weights.shape[1]), dim = 1)
         attns = F.relu(weights * attns)
         seq_len = torch.sum(targets != 0, dim=1).detach()
