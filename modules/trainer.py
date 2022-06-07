@@ -253,10 +253,7 @@ class Trainer(BaseTrainer):
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
         with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
                   unit='it', total=len(self.train_dataloader)) as pbar:
-            end = time.time()
             for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(self.train_dataloader):
-                cur_time = time.time() - end
-                print(111, cur_time)
                 images, reports_ids, reports_masks, labels = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True), \
@@ -305,7 +302,6 @@ class Trainer(BaseTrainer):
                 pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1),
                                  mse_ls = mse_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
-                end = time.time()
                 # if self.early_exit and batch_idx>100:
                 #     torch.save(self.model.records, 'cam_records_fblrelu.pth')
                 #     exit()

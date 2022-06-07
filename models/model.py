@@ -86,7 +86,7 @@ class R2GenModel(nn.Module):
         if mode == 'train':
             output, fore_rep_encoded, target_embed, align_attns = self.encoder_decoder(gbl_feats, patch_feats, targets, mode='forward')
             if self.addcls and self.attn_cam:
-                fore_map, total_attns, idxs = self.attn_cam_con(fore_map, fore_rep_encoded, target_embed, align_attns, targets)
+                total_attns, idxs = self.attn_cam_con(fore_rep_encoded, target_embed, align_attns, targets)
                 # print(weights)
         elif mode == 'sample':
             output, _, attns = self.encoder_decoder(gbl_feats, patch_feats, mode='sample')
