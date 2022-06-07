@@ -101,5 +101,3 @@ class R2GenModel(nn.Module):
 
 
 
-
-

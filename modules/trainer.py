@@ -33,8 +33,7 @@ class BaseTrainer(object):
         #                                                   broadcast_buffers=False, find_unused_parameters=True)
         self.model = model
         self.optimizer = optimizer
-
-        if len(device_ids) > 1:
+        if args.n_gpu > 1:
             self.model = torch.nn.DataParallel(model, device_ids=device_ids)
 
         if args.addcls:
@@ -84,6 +83,7 @@ class BaseTrainer(object):
         end = time.time()
         not_improved_count = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
+
             result = self._train_epoch(epoch)
 
             # save logged informations into log dict
@@ -253,7 +253,10 @@ class Trainer(BaseTrainer):
         cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
         with tqdm(desc='Epoch %d - train, lr:(%.5f,%.5f)' % (epoch, cur_lr[0], cur_lr[1]),
                   unit='it', total=len(self.train_dataloader)) as pbar:
+            end = time.time()
             for batch_idx, (images_id, images, reports_ids, reports_masks, labels) in enumerate(self.train_dataloader):
+                cur_time = time.time() - end
+                print(111, cur_time)
                 images, reports_ids, reports_masks, labels = images.to(self.device, non_blocking=True), \
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True), \
@@ -263,7 +266,7 @@ class Trainer(BaseTrainer):
                 if self.addcls:
                     output, logits, cam, fore_map, total_attn, _ = self.model(images, reports_ids, labels, mode='train')
                 else:
-                    output = self.model(images, reports_ids, mode='train')
+                        output = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
 
 
@@ -295,15 +298,17 @@ class Trainer(BaseTrainer):
                     std_fores += std_fore.mean().item()
                     std_attns += std_attn.mean().item()
 
+
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
                 pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1),
                                  mse_ls = mse_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
-                if self.early_exit and batch_idx>100:
-                    torch.save(self.model.records, 'cam_records_fblrelu.pth')
-                    exit()
+                end = time.time()
+                # if self.early_exit and batch_idx>100:
+                #     torch.save(self.model.records, 'cam_records_fblrelu.pth')
+                #     exit()
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses/len(self.train_dataloader), epoch)
         self.writer.add_scalar('data/cls_loss', img_cls_losses/len(self.train_dataloader), epoch)

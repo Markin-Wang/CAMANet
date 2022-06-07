@@ -74,6 +74,7 @@ class R2DataLoader(DataLoader):
                     'pin_memory': True,
                     'drop_last': self.drop_last,
                     'collate_fn': self.collate_fn,
+                    'prefetch_factor': self.batch_size // self.num_workers * 2
                 }
             else:
                 self.init_kwargs = {
@@ -85,6 +86,7 @@ class R2DataLoader(DataLoader):
                     'pin_memory': True,
                     'drop_last': self.drop_last,
                     'collate_fn': self.collate_fn,
+                    'prefetch_factor': self.batch_size // self.num_workers * 2
                 }
 
         else:
@@ -96,7 +98,8 @@ class R2DataLoader(DataLoader):
                 'collate_fn': self.collate_fn,
                 'num_workers': self.num_workers,
                 'pin_memory': True,
-                'drop_last': self.drop_last
+                'drop_last': self.drop_last,
+                'prefetch_factor': self.batch_size // self.num_workers * 2
             }
 
 

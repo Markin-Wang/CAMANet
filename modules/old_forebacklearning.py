@@ -31,7 +31,7 @@ class ForeBackLearning(nn.Module):
         if self.dropout:
             fore_rep = self.fore_dropout(fore_rep)
             back_rep = self.back_dropout(back_rep)
-        return fore_rep, back_rep, fore_map
+        return fore_rep, back_rep, fore_map.squeeze(1)
 
     def _normalize(self, cams: Tensor, spatial_dims: Optional[int] = None) -> Tensor:
         """CAM normalization."""
