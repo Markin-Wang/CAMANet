@@ -101,7 +101,7 @@ class BaseTrainer(object):
             if self.mnt_mode != 'off':
                 try:
                     # check whether model performance improved or not, according to specified metric(mnt_metric)
-                    cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.25 * log['val_BLEU_1']
+                    cur_metric = log['val_BLEU_4'] + 0.5 * log['val_BLEU_1']
                     improved = (self.mnt_mode == 'min' and cur_metric <= self.mnt_best) or \
                                (self.mnt_mode == 'max' and cur_metric > self.mnt_best)
                 except KeyError:
@@ -200,7 +200,7 @@ class BaseTrainer(object):
         print("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
     def _record_best(self, log):
-        cur_metric = log['val_BLEU_4'] + 0.5 * log['val_METEOR'] + 0.125 * log['val_BLEU_1']
+        cur_metric = log['val_BLEU_4'] +  0.5 * log['val_BLEU_1']
         improved_val = (self.mnt_mode == 'min' and cur_metric <= self.mnt_best) or \
                        (self.mnt_mode == 'max' and cur_metric > self.mnt_best)
         if improved_val:
