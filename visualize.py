@@ -119,7 +119,7 @@ def main():
     # f = open('mimic_prediction_our03.json', 'w', encoding='utf-8')
     # json.dump(records, f, indent=1)
     # f.close()
-    torch.save(data, os.path.join('visualizations','vis', args.exp_name,'vis_data2.pth'))
+    torch.save(data, os.path.join('visualizations','vis', args.exp_name,'vis_data.pth'))
     #torch.save([tokenizer.idx2token, tokenizer.token2idx], os.path.join('visualizations','vis', args.dataset_name+'token_map.pth'))
 
 

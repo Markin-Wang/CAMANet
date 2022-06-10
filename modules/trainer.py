@@ -147,8 +147,10 @@ class BaseTrainer(object):
             record_table = pd.DataFrame()
         else:
             record_table = pd.read_csv(record_path)
-        record_table = record_table.append(self.best_recorder['val'], ignore_index=True)
-        record_table = record_table.append(self.best_recorder['test'], ignore_index=True)
+        record_table = pd.concat([record_table, pd.DataFrame([self.best_recorder['val']]),
+                                  pd.DataFrame([self.best_recorder['test']])],ignore_index=True)
+        # record_table = record_table.concat(self.best_recorder['val'], ignore_index=True)
+        # record_table = record_table.concat(self.best_recorder['test'], ignore_index=True)
         record_table.to_csv(record_path, index=False)
 
     def _prepare_device(self, n_gpu_use):
