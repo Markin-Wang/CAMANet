@@ -298,6 +298,7 @@ class Trainer(BaseTrainer):
                     std_attns += std_attn.mean().item()
 
 
+
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
