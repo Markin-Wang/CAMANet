@@ -384,7 +384,7 @@ class Trainer(BaseTrainer):
                                                          labels.cuda(self.device, non_blocking=True)
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
-                    output, _ = self.model(images, labels=labels,  mode='sample')
+                    output, _, _ = self.model(images, labels=labels,  mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     test_res.extend(reports)
