@@ -12,3 +12,6 @@ mimic_cls_data
 __pycache__/
 .idea
 tensorboard_logs
+.ipynb_checkpoints
+iu_cls_data
+torch-cam
