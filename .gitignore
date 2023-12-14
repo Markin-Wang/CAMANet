@@ -10,3 +10,5 @@ pretrained_models
 mimic_cls_data
 *.pth
 __pycache__/
+.idea
+tensorboard_logs
