@@ -318,7 +318,6 @@ class Trainer(BaseTrainer):
                 # if self.early_exit and batch_idx>100:
                 #     torch.save(self.model.records, 'cam_records_fblrelu.pth')
                 #     exit()
-                break
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses/len(self.train_dataloader), epoch)
         self.writer.add_scalar('data/cls_loss', img_cls_losses/len(self.train_dataloader), epoch)
