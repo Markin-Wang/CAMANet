@@ -318,6 +318,7 @@ class Trainer(BaseTrainer):
                 # if self.early_exit and batch_idx>100:
                 #     torch.save(self.model.records, 'cam_records_fblrelu.pth')
                 #     exit()
+                break
             log = {'ce_loss': ce_losses / len(self.train_dataloader)}
         self.writer.add_scalar('data/ce_loss', ce_losses/len(self.train_dataloader), epoch)
         self.writer.add_scalar('data/cls_loss', img_cls_losses/len(self.train_dataloader), epoch)
@@ -336,13 +337,13 @@ class Trainer(BaseTrainer):
                                                          labels.to(self.device, non_blocking = True)
                     total_attn = None
                     if self.addcls:
-                        out, logits, cam, fore_map, total_attn, _ = self.model(images, reports_ids, labels, mode='train')
+                        out, logits, cam, fore_map, total_attn, _, _ = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
                     else:
-                        out = self.model(images, reports_ids, mode='train')
+                        out, _ = self.model(images, reports_ids, mode='train')
 
-                    output, _ = self.model(images, labels=labels, mode='sample')
+                    output, _, _ = self.model(images, labels=labels, mode='sample')
 
 
                     if total_attn is not None:
@@ -417,7 +418,7 @@ class Trainer(BaseTrainer):
                                                          labels.cuda(self.device, non_blocking=True)
                     #out = self.model(images, reports_ids, mode='train')
                     #loss = self.criterion(out, reports_ids, reports_masks)
-                    output, _, _ = self.model(images, labels=labels,  mode='sample')
+                    output, _ = self.model(images, labels=labels,  mode='sample')
                     reports = self.tokenizer.decode_batch(output.cpu().numpy())
                     ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
                     test_res.extend(reports)

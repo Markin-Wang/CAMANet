@@ -72,7 +72,7 @@ class R2GenModel(nn.Module):
 
     def forward(self, images, targets=None,labels=None, mode='train'):
         fore_map, total_attns, weights, attns, idxs, align_attns_train = None, None, None, None, None, None
-        clip_loss = None
+        clip_loss, logits = None, None
         if self.addcls:
             patch_feats, gbl_feats, logits, cams = self.visual_extractor(images)
             #if self.fbl and labels is not None:
