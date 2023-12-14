@@ -11,6 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from modules.forebacklearning import ForeBackLearning
 from .att_model import pack_wrapper, AttModel
+from modules.utils import compute_clip_loss
 
 
 def clones(module, N):
@@ -343,7 +344,13 @@ class EncoderDecoder(AttModel):
         self.rm_num_heads = args.rm_num_heads
         self.rm_d_model = args.rm_d_model
         self.fbl = args.fbl
+        self.clip = args.clip
 
+        if self.clip:
+            self.proj_image_clip = nn.Linear(self.d_model, self.d_model)
+            self.proj_text_clip = nn.Linear(self.d_model, self.d_model)
+            # nn.init.xavier_uniform_(self.proj_image_clip)
+            # nn.init.xavier_uniform_(self.proj_text_clip)
 
         tgt_vocab = self.vocab_size + 1
 
@@ -386,9 +393,20 @@ class EncoderDecoder(AttModel):
 
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
         out, fore_rep_encoded, target_embed, align_attns = self.model(att_feats, seq, att_masks, seq_mask)
+        if self.clip:
+            avg_img_feats= torch.mean(att_feats,dim=1)
+            clip_mask = (seq.data > 0)
+            clip_mask[:, 0] += True
+            avg_text_feats = torch.stack([torch.mean(out[i,clip_mask[i]], dim=0) for i in range(out.shape[0])],dim=0)
+            img_feats_clip, text_feats_clip = self.proj_image_clip(avg_img_feats), self.proj_text_clip(avg_text_feats)
+
+            img_feats_clip, text_feats_clip = F.normalize(img_feats_clip, p=2, dim=1), F.normalize(text_feats_clip, p=2, dim=1)
+            clip_loss = compute_clip_loss(img_feats_clip, text_feats_clip)
+        else:
+            clip_loss = None
         outputs = F.log_softmax(self.logit(out), dim=-1)
         #cls_logits = self.cls_logit(torch.mean(out, dim=1))
-        return outputs, fore_rep_encoded, target_embed, align_attns
+        return outputs, fore_rep_encoded, target_embed, align_attns, clip_loss
 
     def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
 
@@ -398,3 +416,27 @@ class EncoderDecoder(AttModel):
             ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
         out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
         return out[:, -1], [ys.unsqueeze(0)], attns
+
+
+# class ProjectionHead(nn.Module):
+#     def __init__(
+#             self,
+#             embedding_dim,
+#             projection_dim=CFG.projection_dim,
+#             dropout=CFG.dropout
+#     ):
+#         super().__init__()
+#         self.projection = nn.Linear(embedding_dim, projection_dim)
+#         self.gelu = nn.GELU()
+#         self.fc = nn.Linear(projection_dim, projection_dim)
+#         self.dropout = nn.Dropout(dropout)
+#         self.layer_norm = nn.LayerNorm(projection_dim)
+#
+#     def forward(self, x):
+#         projected = self.projection(x)
+#         x = self.gelu(projected)
+#         x = self.fc(x)
+#         x = self.dropout(x)
+#         x = x + projected
+#         x = self.layer_norm(x)
+#         return x

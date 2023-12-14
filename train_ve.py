@@ -93,7 +93,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
     start = time.time()
     end = time.time()
-    for idx, (samples, targets) in enumerate(data_loader):
+    for idx, (samples, targets, images_id) in enumerate(data_loader):
         samples = samples.cuda(non_blocking=True)
         targets = targets.cuda(non_blocking=True)
 
@@ -170,7 +170,7 @@ def validate(config, data_loader, model):
     true_list = []
 
     end = time.time()
-    for idx, (images, target) in enumerate(data_loader):
+    for idx, (images, target,images_id) in enumerate(data_loader):
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
 
@@ -262,11 +262,13 @@ def train(args, config, model):
                 transforms.ToTensor(),
                 transforms.Normalize((0.485, 0.456, 0.406),
                                      (0.229, 0.224, 0.225))])
+            print('load train image.')
             train_set = ChexPert(cfg.train_csv, cfg, mode='train', transform=train_transform)
             train_loader = DataLoader(
                 train_set,
                 batch_size=args.batch_size, num_workers=args.num_workers,
                 drop_last=True, sampler=MultilabelBalancedRandomSampler(np.array(train_set._labels)))
+            print('load val image.')
             val_loader = DataLoader(
                 ChexPert(cfg.dev_csv, cfg, mode='dev', transform=test_transform),
                 batch_size=args.batch_size, num_workers=args.num_workers,

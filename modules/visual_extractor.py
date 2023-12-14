@@ -24,7 +24,8 @@ class VisualExtractor(nn.Module):
             # config.MODEL.SWIN.DEPTHS = config.MODEL.SWIN.DEPTHS[:-1]
             # config.freeze()
             self.model = build_model(config)
-            load_pretrained(config, self.model, logger)
+            if not args.test:
+                load_pretrained(config, self.model, logger)
             # print(self.model.layers)
             # self.model.layers = self.model.layers[:-1]
             # print(self.model.layers)

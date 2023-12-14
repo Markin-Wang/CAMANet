@@ -49,7 +49,7 @@ class CamAttnCon(nn.Module):
             raise NotImplementedError
         if self.vis:
             return total_attn, [idxs[i][:math.ceil(true_topk[i])].detach().cpu() for i in range(len(attns))], align_attns
-        return total_attn, None
+        return total_attn, None, None
 
 
     def _normalize(self, cams):

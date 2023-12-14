@@ -6,7 +6,8 @@ import cv2
 import torchvision.transforms as tfs
 import numpy as np
 import os
-
+import torch.nn.functional as F
+import torch.nn as nn
 
 def penalty_builder(penalty_config):
     if penalty_config == '':
@@ -199,6 +200,9 @@ def parse_args():
     parser.add_argument('--vis', action='store_true', help='vis attention weights, used in inference')
     parser.add_argument('--fore_t', type=float, default=0.6, help='foreground threshold.')
     parser.add_argument('--back_t', type=float, default=0.3, help='background threshold.')
+    parser.add_argument('--test', action='store_true', help='perform inference.')
+    parser.add_argument('--clip', action='store_true', help='perform clip alignment.')
+    parser.add_argument('--clip_w', type=float, default=0.5, help='the weight for clip loss')
 
     args, unparsed = parser.parse_known_args()
     config = get_config(args)
@@ -470,3 +474,25 @@ def load_checkpoint(resume_file, model, optimizer, lr_scheduler, logger):
     del checkpoint
     torch.cuda.empty_cache()
     return max_accuracy
+
+
+def cross_entropy(preds, targets, reduction='none'):
+    log_softmax = nn.LogSoftmax(dim=-1)
+    loss = (-targets * log_softmax(preds)).sum(1)
+    if reduction == "none":
+        return loss
+    elif reduction == "mean":
+        return loss.mean()
+
+
+def compute_clip_loss(image_embeddings, text_embeddings, temperature=1.0):
+    logits = (text_embeddings @ image_embeddings.T)
+    images_similarity = image_embeddings @ image_embeddings.T
+    texts_similarity = text_embeddings @ text_embeddings.T
+    targets = F.softmax(
+        (images_similarity + texts_similarity) / 2, dim=-1
+    )
+    texts_loss = cross_entropy(logits, targets, reduction='none')
+    images_loss = cross_entropy(logits.T, targets.T, reduction='none')
+    loss = (images_loss + texts_loss) / 2.0  # shape: (batch_size)
+    return loss.mean()

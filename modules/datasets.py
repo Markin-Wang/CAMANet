@@ -9,6 +9,7 @@ import cv2
 import pandas as pd
 from .utils import GetTransforms, transform
 import numpy as np
+from tqdm import tqdm
 
 
 class BaseDataset(Dataset):
@@ -31,7 +32,7 @@ class BaseDataset(Dataset):
                 array = img_id.split('-')
                 modified_id = array[0] + '-' + array[1]
                 self._labels.append(self.labels[modified_id])
-        else:
+        elif args.dataset_name =='mimic_cxr_dsr2':
             self._labels = [self.labels[e['id']] for e in self.examples]
 
         for i in range(len(self.examples)):
@@ -97,7 +98,7 @@ class ChexPert(Dataset):
                 header[11],
                 header[13],
                 header[15]]
-            for line in f:
+            for line in tqdm(f):
                 labels = []
                 fields = line.strip('\n').split(',')
                 #print('111', fields)
@@ -128,10 +129,10 @@ class ChexPert(Dataset):
                 self._image_paths.append(image_path)
                 assert os.path.exists(image_path), image_path
                 self._labels.append(labels)
-                # if flg_enhance and self._mode == 'train':
-                #     for i in range(self.cfg.enhance_times):
-                #         self._image_paths.append(image_path)
-                #         self._labels.append(labels)
+                if flg_enhance and self._mode == 'train':
+                    for i in range(self.cfg.enhance_times):
+                        self._image_paths.append(image_path)
+                        self._labels.append(labels)
         self._num_image = len(self._image_paths)
 
     def __len__(self):
@@ -198,7 +199,7 @@ class IuxrayMultiImageClsDataset(Dataset):
         if self.vis:
             return image, image_path, label
         else:
-            return image, label
+            return image, label, modified_id
 
     def __len__(self):
         return len(self.examples)
@@ -232,7 +233,7 @@ class MimiccxrSingleImageClsDataset(BaseDataset):
         if self.vis:
             return image, image_path, label
         else:
-            return image, label
+            return image, label, image_id
 
     def __len__(self):
         return len(self.examples)

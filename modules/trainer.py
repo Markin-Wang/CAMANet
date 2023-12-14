@@ -9,6 +9,7 @@ from numpy import inf
 from tqdm import tqdm
 from modules.utils import auto_resume_helper
 from modules.weighted_mesloss import Weighted_MSELoss
+import json
 # try:
 #     # noinspection PyUnresolvedReferences
 #     from apex import amp
@@ -48,6 +49,8 @@ class BaseTrainer(object):
         self.metric_ftns = metric_ftns
 
         self.logger = logger
+
+        self.clip_w = args.clip_w
 
         self.epochs = self.args.epochs
         self.save_period = self.args.save_period
@@ -246,6 +249,7 @@ class Trainer(BaseTrainer):
         ce_losses = 0
         img_cls_losses = 0
         mse_losses = 0
+        clip_losses = 0
         val_ce_losses = 0
         val_img_cls_losses = 0
         val_mse_losses = 0
@@ -260,16 +264,17 @@ class Trainer(BaseTrainer):
                                                      reports_ids.to(self.device, non_blocking=True), \
                                                      reports_masks.to(self.device, non_blocking=True), \
                                                      labels.to(self.device, non_blocking = True)
-                logits, total_attn = None, None
+                logits, total_att, clip_loss, total_attn = None, None, None, None
 
                 if self.addcls:
-                    output, logits, cam, fore_map, total_attn, _ = self.model(images, reports_ids, labels, mode='train')
+                    output, logits, cam, fore_map, total_attn, _, align_attns_train = self.model(images, reports_ids, labels, mode='train')
                 else:
-                        output = self.model(images, reports_ids, mode='train')
+                        output, clip_loss = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
 
 
                 ce_losses += loss.item()
+
                 if logits is not None:
                     img_cls_loss = self.cls_criterion(logits, labels)
                     loss = loss + self.cls_w * img_cls_loss
@@ -279,6 +284,10 @@ class Trainer(BaseTrainer):
                     mse_loss = self.mse_criterion(total_attn, fore_map, logits, labels)
                     loss = loss + self.mse_w * mse_loss
                     mse_losses += mse_loss.item()
+
+                if clip_loss is not None:
+                    loss = loss + self.clip_w * clip_loss
+                    clip_losses += clip_loss.item()
 
 
                 self.optimizer.zero_grad()
@@ -303,6 +312,7 @@ class Trainer(BaseTrainer):
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
                 pbar.set_postfix(ce_ls=ce_losses / (batch_idx + 1), cls_ls=img_cls_losses / (batch_idx + 1),
+                                 clip_ls=clip_losses / (batch_idx + 1),
                                  mse_ls = mse_losses / (batch_idx + 1), mem = f'mem {memory_used:.0f}MB')
                 pbar.update()
                 # if self.early_exit and batch_idx>100:
@@ -391,4 +401,43 @@ class Trainer(BaseTrainer):
                 self.writer.add_scalar('data/test_rouge-l', test_met['ROUGE_L'], epoch)
 
         # add loss
+        return log
+
+    def _test(self):
+        self.model.eval()
+        epoch = 0
+        log = {}
+        with tqdm(desc='Epoch %d - test' % epoch, unit='it', total=len(self.test_dataloader)) as pbar:
+            with torch.no_grad():
+                test_gts, test_res, img_ids = [], [], []
+                for batch_idx, (images_id, images, reports_ids, reports_masks,labels) in enumerate(self.test_dataloader):
+                    images, reports_ids, reports_masks, labels = images.to(self.device,non_blocking=True), \
+                                                         reports_ids.to(self.device,non_blocking=True), \
+                                                         reports_masks.to(self.device, non_blocking=True), \
+                                                         labels.cuda(self.device, non_blocking=True)
+                    #out = self.model(images, reports_ids, mode='train')
+                    #loss = self.criterion(out, reports_ids, reports_masks)
+                    output, _, _ = self.model(images, labels=labels,  mode='sample')
+                    reports = self.tokenizer.decode_batch(output.cpu().numpy())
+                    ground_truths = self.tokenizer.decode_batch(reports_ids[:, 1:].cpu().numpy())
+                    test_res.extend(reports)
+                    test_gts.extend(ground_truths)
+                    img_ids.extend(images_id)
+                    pbar.update()
+                test_met = self.metric_ftns({i: [gt] for i, gt in enumerate(test_gts)},
+                                            {i: [re] for i, re in enumerate(test_res)})
+                log.update(**{'test_' + k: v for k, v in test_met.items()})
+                self.writer.add_scalar('data/test_bleu1', test_met['BLEU_1'], epoch)
+                self.writer.add_scalar('data/test_bleu2', test_met['BLEU_2'], epoch)
+                self.writer.add_scalar('data/test_bleu3', test_met['BLEU_3'], epoch)
+                self.writer.add_scalar('data/test_bleu4', test_met['BLEU_4'], epoch)
+                self.writer.add_scalar('data/test_meteor', test_met['METEOR'], epoch)
+                self.writer.add_scalar('data/test_rouge-l', test_met['ROUGE_L'], epoch)
+
+
+        data = (img_ids, test_res, test_gts)
+        save_data = [{'img_id': img_id, 'pred': pred, 'gt': gt} for img_id, pred, gt in zip(*data)]
+        save_data = [log] + save_data
+        with open(f'caption_data.json', 'w') as f:
+            json.dump(save_data, f)
         return log
