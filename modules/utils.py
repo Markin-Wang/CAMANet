@@ -492,7 +492,25 @@ def compute_clip_loss(image_embeddings, text_embeddings, temperature=1.0):
     targets = F.softmax(
         (images_similarity + texts_similarity) / 2, dim=-1
     )
+    print(targets)
+    exit()
     texts_loss = cross_entropy(logits, targets, reduction='none')
     images_loss = cross_entropy(logits.T, targets.T, reduction='none')
     loss = (images_loss + texts_loss) / 2.0  # shape: (batch_size)
     return loss.mean()
+
+def compute_clip_loss2(image_features, text_features, logit_scale, loss_clip):
+
+    # normalized features
+    ground_truth = torch.arange(len(image_features), dtype=torch.long, device=image_features.device)
+    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+    # cosine similarity as logits
+    logit_scale = logit_scale.exp()
+    logits_per_image = logit_scale * image_features @ text_features.t()
+    logits_per_text = logit_scale * text_features @ image_features.t()
+    total_loss = (loss_clip(logits_per_image, ground_truth) + loss_clip(logits_per_text, ground_truth)) / 2
+
+    # shape = [global_batch_size, global_batch_size]
+    return total_loss

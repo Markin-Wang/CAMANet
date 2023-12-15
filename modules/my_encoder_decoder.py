@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from modules.forebacklearning import ForeBackLearning
 from .att_model import pack_wrapper, AttModel
-from modules.utils import compute_clip_loss
+from modules.utils import compute_clip_loss, compute_clip_loss2
 
 
 def clones(module, N):
@@ -23,7 +23,7 @@ def attention(query, key, value, mask=None, dropout=None):
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
-        #scores = scores.masked_fill(mask == 0, 0)
+        # scores = scores.masked_fill(mask == 0, 0)
     p_attn = F.softmax(scores, dim=-1)
     if dropout is not None:
         p_attn = dropout(p_attn)
@@ -46,21 +46,21 @@ class Transformer(nn.Module):
         self.rm = rm
         self.fbl = fbl
 
-    def forward(self, src, tgt, src_mask, tgt_mask, mode = 'train'):
+    def forward(self, src, tgt, src_mask, tgt_mask, mode='train'):
         return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask, mode)
 
     def encode(self, src, src_mask):
         return self.encoder(self.src_embed(src), src_mask)
 
-    def decode(self, hidden_states, src_mask, tgt, tgt_mask,mode = 'sample'):
+    def decode(self, hidden_states, src_mask, tgt, tgt_mask, mode='sample'):
         memory = self.rm.init_memory(hidden_states.size(0)).to(hidden_states)
         target_emb = self.tgt_embed(tgt)
         memory = self.rm(target_emb, memory)
         if self.fbl:
-            hidden_states, src_mask = hidden_states[:,1:], src_mask[:,:,1:]
+            hidden_states, src_mask = hidden_states[:, 1:], src_mask[:, :, 1:]
         if mode == 'train':
             out, align_attns = self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)
-            return out, hidden_states[:,0], target_emb, align_attns
+            return out, hidden_states[:, 0], target_emb, align_attns
         return self.decoder(target_emb, hidden_states, src_mask, tgt_mask, memory)
 
 
@@ -351,12 +351,14 @@ class EncoderDecoder(AttModel):
             self.proj_text_clip = nn.Linear(self.d_model, self.d_model)
             # nn.init.xavier_uniform_(self.proj_image_clip)
             # nn.init.xavier_uniform_(self.proj_text_clip)
+            self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+            self.loss_clip = nn.CrossEntropyLoss()
 
         tgt_vocab = self.vocab_size + 1
 
         self.model = self.make_model(tgt_vocab)
         self.logit = nn.Linear(args.d_model, tgt_vocab)
-        #self.cls_logit = nn.Linear(args.d_model, 14)
+        # self.cls_logit = nn.Linear(args.d_model, 14)
 
     def init_hidden(self, bsz):
         return []
@@ -394,29 +396,32 @@ class EncoderDecoder(AttModel):
         att_feats, seq, att_masks, seq_mask = self._prepare_feature_forward(att_feats, att_masks, seq)
         out, fore_rep_encoded, target_embed, align_attns = self.model(att_feats, seq, att_masks, seq_mask)
         if self.clip:
-            avg_img_feats= torch.mean(att_feats,dim=1)
+            avg_img_feats = torch.mean(att_feats, dim=1)
             clip_mask = (seq.data > 0)
             clip_mask[:, 0] += True
-            avg_text_feats = torch.stack([torch.mean(out[i,clip_mask[i]], dim=0) for i in range(out.shape[0])],dim=0)
+            avg_text_feats = torch.stack([torch.mean(out[i, clip_mask[i]], dim=0) for i in range(out.shape[0])], dim=0)
             img_feats_clip, text_feats_clip = self.proj_image_clip(avg_img_feats), self.proj_text_clip(avg_text_feats)
 
-            img_feats_clip, text_feats_clip = F.normalize(img_feats_clip, p=2, dim=1), F.normalize(text_feats_clip, p=2, dim=1)
-            clip_loss = compute_clip_loss(img_feats_clip, text_feats_clip)
+            img_feats_clip = img_feats_clip / img_feats_clip.norm(dim=-1, keepdim=True)
+            text_feats_clip = text_feats_clip / text_feats_clip.norm(dim=-1, keepdim=True)
+            #clip_loss = compute_clip_loss(img_feats_clip, text_feats_clip)
+            clip_loss = compute_clip_loss2(img_feats_clip, text_feats_clip,self.logit_scale, self.loss_clip)
+
         else:
             clip_loss = None
+
         outputs = F.log_softmax(self.logit(out), dim=-1)
-        #cls_logits = self.cls_logit(torch.mean(out, dim=1))
+        # cls_logits = self.cls_logit(torch.mean(out, dim=1))
         return outputs, fore_rep_encoded, target_embed, align_attns, clip_loss
 
-    def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
 
-        if len(state) == 0:
-            ys = it.unsqueeze(1)
-        else:
-            ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-        out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
-        return out[:, -1], [ys.unsqueeze(0)], attns
-
+def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
+    if len(state) == 0:
+        ys = it.unsqueeze(1)
+    else:
+        ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
+    out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+    return out[:, -1], [ys.unsqueeze(0)], attns
 
 # class ProjectionHead(nn.Module):
 #     def __init__(
