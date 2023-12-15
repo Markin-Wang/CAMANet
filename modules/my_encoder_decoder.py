@@ -415,13 +415,13 @@ class EncoderDecoder(AttModel):
         return outputs, fore_rep_encoded, target_embed, align_attns, clip_loss
 
 
-def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
-    if len(state) == 0:
-        ys = it.unsqueeze(1)
-    else:
-        ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
-    out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
-    return out[:, -1], [ys.unsqueeze(0)], attns
+    def core(self, it, fc_feats_ph, att_feats_ph, memory, state, mask):
+        if len(state) == 0:
+            ys = it.unsqueeze(1)
+        else:
+            ys = torch.cat([state[0][0], it.unsqueeze(1)], dim=1)
+        out, attns = self.model.decode(memory, mask, ys, subsequent_mask(ys.size(1)).to(memory.device))
+        return out[:, -1], [ys.unsqueeze(0)], attns
 
 # class ProjectionHead(nn.Module):
 #     def __init__(
