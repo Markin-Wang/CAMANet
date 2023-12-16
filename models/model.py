@@ -96,7 +96,7 @@ class R2GenModel(nn.Module):
             raise ValueError
         if mode == 'train':
             if self.addcls:
-                return output, logits, cams, fore_map, total_attns, idxs, align_attns_train
+                return output, logits, cams, fore_map, total_attns, idxs, align_attns_train, clip_loss
             else:
                 return output, clip_loss
         # return output, attns

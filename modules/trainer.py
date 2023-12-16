@@ -267,7 +267,7 @@ class Trainer(BaseTrainer):
                 logits, total_att, clip_loss, total_attn = None, None, None, None
 
                 if self.addcls:
-                    output, logits, cam, fore_map, total_attn, _, align_attns_train = self.model(images, reports_ids, labels, mode='train')
+                    output, logits, cam, fore_map, total_attn, _, align_attns_train, clip_loss = self.model(images, reports_ids, labels, mode='train')
                 else:
                         output, clip_loss = self.model(images, reports_ids, mode='train')
                 loss = self.criterion(output, reports_ids, reports_masks)
@@ -306,8 +306,6 @@ class Trainer(BaseTrainer):
                     std_fores += std_fore.mean().item()
                     std_attns += std_attn.mean().item()
 
-
-
                 # self.lr_scheduler.step_update((epoch) * num_steps + batch_idx)
                 memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
                 cur_lr = [param_group['lr'] for param_group in self.optimizer.param_groups]
@@ -336,7 +334,7 @@ class Trainer(BaseTrainer):
                                                          labels.to(self.device, non_blocking = True)
                     total_attn = None
                     if self.addcls:
-                        out, logits, cam, fore_map, total_attn, _, _ = self.model(images, reports_ids, labels, mode='train')
+                        out, logits, cam, fore_map, total_attn, _, _, clip_loss = self.model(images, reports_ids, labels, mode='train')
                         val_img_cls_loss = self.cls_criterion(logits,labels)
                         val_img_cls_losses += val_img_cls_loss.item()
                     else:
