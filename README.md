@@ -53,14 +53,17 @@ We also provide the generated labels in the files directory.
 
 Our experiments on IU X-Ray were done on RTX A6000 card.
 
-## Experiments on IU X-Ray
+## Train on IU X-Ray
 
-Run `bash run_iu_xray.sh` to train a model on the IU X-Ray data.
+Run `bash run_iu.sh` to train a model on the IU X-Ray data.
 
 ## Run on MIMIC-CXR
 
-Run `bash run_mimic_cxr.sh` to train a model on the MIMIC-CXR data.
+Run `bash run_mimic.sh` to train a model on the MIMIC-CXR data.
 
+## Test on MIMIC-CXR
+
+Run `bash test_mimic.sh` to train a model on the MIMIC-CXR data.
 
 ## Acknowledgment
 Our project references the codes in the following repos. Thanks for their works and sharing.
