@@ -51,7 +51,7 @@ You can generate the pesudo label for each dataset by leveraging the automatic l
 
 We also provide the generated labels in the files directory.
 
-Our experiments on IU X-Ray were done on RTX A6000 card.
+Our experiments were done on RTX A6000 card.
 
 ## Train on IU X-Ray
 
