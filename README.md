@@ -12,11 +12,12 @@ Radiology report generation (RRG) has gained increasing research attention becau
 
 If you use or extend our work, please cite our paper.
 ```
-@article{wang2022camanet,
-  title={CAMANet: Class Activation Map Guided Attention Network for Radiology Report Generation},
+@article{wang2024camanet,
+  title={CAMANet: class activation map guided attention network for radiology report generation},
   author={Wang, Jun and Bhalerao, Abhir and Yin, Terry and See, Simon and He, Yulan},
-  journal={arXiv preprint arXiv:2211.01412},
-  year={2022}
+  journal={IEEE Journal of Biomedical and Health Informatics},
+  year={2024},
+  publisher={IEEE}
 }
 ```
 
