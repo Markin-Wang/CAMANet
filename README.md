@@ -1,6 +1,6 @@
 # CAMANet
 
-[IJBHI 2023] This is the official implementation of [CAMANet: Class Activation Map Guided Attention Network for Radiology Report Generation](https://arxiv.org/pdf/2211.01412.pdf) accepted to  IEEE Journal of Biomedical and Health Informatics (J-BHI), 2024.
+[IJBHI 2024] This is the official implementation of [CAMANet: Class Activation Map Guided Attention Network for Radiology Report Generation](https://arxiv.org/pdf/2211.01412.pdf) accepted to  IEEE Journal of Biomedical and Health Informatics (J-BHI), 2024.
 
 ## Abstract
 
